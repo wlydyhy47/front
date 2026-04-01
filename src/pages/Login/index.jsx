@@ -159,7 +159,7 @@ export default function Login() {
               sx={{
                 width: 100,
                 height: 100,
-                scale:3
+                scale:2
               }}
             />
           </Box>
