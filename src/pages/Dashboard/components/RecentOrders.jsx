@@ -8,6 +8,10 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Box,
+  Typography,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { Visibility } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -33,9 +37,54 @@ const statusLabels = {
 
 export default function RecentOrders({ orders = [] }) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
+  if (isMobile) {
+    // عرض بطاقات للهواتف بدلاً من الجدول
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {orders.map((order) => (
+          <Card key={order.id} sx={{ p: 1.5 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography variant="subtitle2" fontWeight="bold">
+                #{order.id.slice(-6)}
+              </Typography>
+              <Chip
+                label={statusLabels[order.status] || order.status}
+                size="small"
+                color={statusColors[order.status] || 'default'}
+              />
+            </Box>
+            <Typography variant="body2" color="textSecondary">
+              {order.user?.name || order.userId}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {order.store?.name || order.storeId}
+            </Typography>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+              <Typography variant="body2" fontWeight="bold">
+                {formatCurrency(order.totalPrice)}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                {formatDate(order.createdAt, 'HH:mm')}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => navigate(`/orders/${order.id}`)}
+              >
+                <Visibility fontSize="small" />
+              </IconButton>
+            </Box>
+          </Card>
+        ))}
+      </Box>
+    );
+  }
+  
+  // عرض جدول للشاشات الكبيرة
   return (
-    <TableContainer>
+    <TableContainer sx={{ overflowX: 'auto' }}>
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -80,3 +129,6 @@ export default function RecentOrders({ orders = [] }) {
     </TableContainer>
   );
 }
+
+// استيراد Card
+import { Card } from '@mui/material';

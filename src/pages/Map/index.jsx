@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
     Box,
     Paper,
@@ -26,6 +27,9 @@ import {
     Skeleton,
     FormControlLabel,
     Switch,
+    Tabs,
+    Tab,
+    Collapse,
 } from '@mui/material';
 import {
     Refresh,
@@ -46,6 +50,8 @@ import { mapService, ordersService, storesService } from '../../api';
 import DriverLocationMap from '../../components/Map/DriverLocationMap';
 import OrderTrackingMap from '../../components/Map/OrderTrackingMap';
 import StoreMap from '../../components/Map/StoreMap';
+import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
+import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 
 // تبويبات الصفحة
 const TABS = {
@@ -57,14 +63,9 @@ const TABS = {
 
 // ✅ مكون Wrapper لـ Tooltip مع دعم ref
 const TooltipWrapper = forwardRef(({ title, children, ...props }, ref) => {
-    // التحقق من صحة children
-    if (!children) {
-        return null;
-    }
+    if (!children) return null;
     
-    // إذا كان العنصر يحتاج إلى ref، قم بتمريره
     if (React.isValidElement(children)) {
-        // إذا كان العنصر معطلاً أو يحتاج إلى ref
         const childWithRef = React.cloneElement(children, { 
             ref: ref || children.ref 
         });
@@ -75,7 +76,6 @@ const TooltipWrapper = forwardRef(({ title, children, ...props }, ref) => {
         );
     }
     
-    // للعناصر غير القابلة للـ ref (مثل النصوص)
     return (
         <Tooltip title={title} {...props}>
             <span style={{ display: 'inline-flex' }}>
@@ -88,6 +88,7 @@ const TooltipWrapper = forwardRef(({ title, children, ...props }, ref) => {
 TooltipWrapper.displayName = 'TooltipWrapper';
 
 export default function MapPage() {
+    const { isMobile, isTablet, fontSize, spacing } = useResponsive();
     const queryClient = useQueryClient();
     const mapRef = useRef(null);
     const [activeTab, setActiveTab] = useState(TABS.DRIVERS);
@@ -112,6 +113,10 @@ export default function MapPage() {
     const [mapCenter, setMapCenter] = useState(null);
     const [isMapReady, setIsMapReady] = useState(false);
     const [lastUpdateTime, setLastUpdateTime] = useState(null);
+
+    // تحديد ارتفاع الخريطة حسب حجم الشاشة
+    const mapHeight = isMobile ? 400 : isTablet ? 500 : 560;
+    const sidePanelHeight = isMobile ? 400 : 650;
 
     // جلب مواقع المندوبين
     const { 
@@ -387,13 +392,12 @@ export default function MapPage() {
     }, [activeTab, getUserLocation, userLocation]);
 
     return (
-        <Box dir="rtl" sx={{ p: 3, position: 'relative' }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                <Typography variant="h5" fontWeight="bold">
+        <Box sx={{ p: spacing.page, position: 'relative' }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={spacing.section} flexWrap="wrap" gap={2}>
+                <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold" sx={{ fontSize: fontSize.h2 }}>
                     الخرائط والتتبع
                 </Typography>
                 
-                {/* زر التحديث الرئيسي - بدون TooltipWrapper لتجنب المشاكل */}
                 <Badge 
                     color="primary" 
                     variant="dot" 
@@ -405,147 +409,98 @@ export default function MapPage() {
                         onClick={refreshAllData}
                         disabled={isDriversFetching || isStoresFetching}
                         sx={{ textTransform: 'none' }}
+                        size={isMobile ? "small" : "medium"}
                     >
                         {isDriversFetching || isStoresFetching ? (
-                            <CircularProgress size={24} />
+                            <CircularProgress size={20} />
                         ) : (
-                            'تحديث الكل'
+                            isMobile ? 'تحديث' : 'تحديث الكل'
                         )}
                     </Button>
                 </Badge>
             </Box>
 
-            {/* تبويبات */}
-            <Paper sx={{ mb: 3 }}>
-                <Box display="flex" borderBottom={1} borderColor="divider" sx={{ overflowX: 'auto' }}>
-                    <Button
-                        onClick={() => setActiveTab(TABS.DRIVERS)}
-                        sx={{
-                            py: 2,
-                            px: 3,
-                            borderRadius: 0,
-                            borderBottom: activeTab === TABS.DRIVERS ? 2 : 0,
-                            borderColor: 'primary.main',
-                            color: activeTab === TABS.DRIVERS ? 'primary.main' : 'text.secondary',
-                            whiteSpace: 'nowrap',
-                        }}
-                        startIcon={<LocalShipping />}
-                    >
-                        مواقع المندوبين
-                        {driversLocations?.data?.drivers && (
-                            <Chip 
-                                size="small" 
-                                label={driversLocations.data.drivers.length} 
-                                sx={{ ml: 1, height: 20 }}
-                            />
-                        )}
-                    </Button>
-                    <Button
-                        onClick={() => setActiveTab(TABS.ORDERS)}
-                        sx={{
-                            py: 2,
-                            px: 3,
-                            borderRadius: 0,
-                            borderBottom: activeTab === TABS.ORDERS ? 2 : 0,
-                            borderColor: 'primary.main',
-                            color: activeTab === TABS.ORDERS ? 'primary.main' : 'text.secondary',
-                            whiteSpace: 'nowrap',
-                        }}
-                        startIcon={<Directions />}
-                    >
-                        تتبع الطلبات
-                        {activeOrders?.data?.orders && (
-                            <Chip 
-                                size="small" 
-                                label={activeOrders.data.orders.length} 
-                                sx={{ ml: 1, height: 20 }}
-                            />
-                        )}
-                    </Button>
-                    <Button
-                        onClick={() => setActiveTab(TABS.STORES)}
-                        sx={{
-                            py: 2,
-                            px: 3,
-                            borderRadius: 0,
-                            borderBottom: activeTab === TABS.STORES ? 2 : 0,
-                            borderColor: 'primary.main',
-                            color: activeTab === TABS.STORES ? 'primary.main' : 'text.secondary',
-                            whiteSpace: 'nowrap',
-                        }}
-                        startIcon={<Storefront />}
-                    >
-                        المتاجر القريبة
-                    </Button>
-                    <Button
-                        onClick={() => setActiveTab(TABS.SEARCH)}
-                        sx={{
-                            py: 2,
-                            px: 3,
-                            borderRadius: 0,
-                            borderBottom: activeTab === TABS.SEARCH ? 2 : 0,
-                            borderColor: 'primary.main',
-                            color: activeTab === TABS.SEARCH ? 'primary.main' : 'text.secondary',
-                            whiteSpace: 'nowrap',
-                        }}
-                        startIcon={<Search />}
-                    >
-                        البحث
-                    </Button>
-                </Box>
+            {/* تبويبات متجاوبة */}
+            <Paper sx={{ mb: spacing.card }}>
+                <Tabs
+                    value={activeTab}
+                    onChange={(e, newValue) => setActiveTab(newValue)}
+                    variant={isMobile ? "scrollable" : "standard"}
+                    scrollButtons={isMobile ? "auto" : false}
+                    sx={{
+                        '& .MuiTab-root': {
+                            minHeight: isMobile ? 40 : 48,
+                            fontSize: isMobile ? '0.75rem' : '0.875rem',
+                            px: isMobile ? 1.5 : 3,
+                        }
+                    }}
+                >
+                    <Tab 
+                        icon={<LocalShipping />} 
+                        iconPosition="start"
+                        label={isMobile ? "المندوبين" : "مواقع المندوبين"}
+                        value={TABS.DRIVERS}
+                    />
+                    <Tab 
+                        icon={<Directions />} 
+                        iconPosition="start"
+                        label={isMobile ? "الطلبات" : "تتبع الطلبات"}
+                        value={TABS.ORDERS}
+                    />
+                    <Tab 
+                        icon={<Storefront />} 
+                        iconPosition="start"
+                        label={isMobile ? "المتاجر" : "المتاجر القريبة"}
+                        value={TABS.STORES}
+                    />
+                    <Tab 
+                        icon={<Search />} 
+                        iconPosition="start"
+                        label="البحث"
+                        value={TABS.SEARCH}
+                    />
+                </Tabs>
             </Paper>
 
-            {/* تبويب المندوبين - استخدام Tooltip مباشرة بدلاً من TooltipWrapper */}
+            {/* تبويب المندوبين */}
             {activeTab === TABS.DRIVERS && (
-                <Grid container spacing={3}>
+                <Grid container spacing={spacing.card}>
                     <Grid item xs={12} md={8}>
-                        <Paper sx={{ p: 2, height: 650, position: 'relative' }}>
+                        <Paper sx={{ p: spacing.card, position: 'relative' }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-                                <Typography variant="h6">
-                                    مواقع المندوبين
-                                    <Chip 
-                                        size="small" 
-                                        label={`${onlineDriversCount} متصل / ${offlineDriversCount} غير متصل`}
-                                        sx={{ ml: 2 }}
-                                    />
-                                </Typography>
-                                <Box display="flex" gap={1}>
+                                <Box>
+                                    <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: fontSize.h3 }}>
+                                        مواقع المندوبين
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary">
+                                        {onlineDriversCount} متصل / {offlineDriversCount} غير متصل
+                                    </Typography>
+                                </Box>
+                                <Box display="flex" gap={0.5}>
                                     <Tooltip title="تحديث الخريطة">
-                                        <span>
-                                            <IconButton 
-                                                onClick={refreshAllData} 
-                                                disabled={driversLoading}
-                                                size="small"
-                                            >
-                                                <Refresh />
-                                            </IconButton>
-                                        </span>
+                                        <IconButton onClick={refreshAllData} disabled={driversLoading} size="small">
+                                            <Refresh />
+                                        </IconButton>
                                     </Tooltip>
-                                    
                                     <Tooltip title="الفلاتر">
-                                        <span>
-                                            <IconButton 
-                                                onClick={() => setShowDriverFilters(!showDriverFilters)}
-                                                color={showDriverFilters ? 'primary' : 'default'}
-                                                size="small"
-                                            >
-                                                <FilterList />
-                                            </IconButton>
-                                        </span>
+                                        <IconButton 
+                                            onClick={() => setShowDriverFilters(!showDriverFilters)}
+                                            color={showDriverFilters ? 'primary' : 'default'}
+                                            size="small"
+                                        >
+                                            <FilterList />
+                                        </IconButton>
                                     </Tooltip>
-                                    
                                     <Tooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
                                     </Tooltip>
-                                    
                                     <Tooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
                                     </Tooltip>
-                                    
                                     <Tooltip title="موقعي">
                                         <IconButton onClick={getUserLocation} size="small">
                                             <MyLocation />
@@ -555,57 +510,57 @@ export default function MapPage() {
                             </Box>
                             
                             {/* فلتر المندوبين */}
-                            {showDriverFilters && (
-                                <Fade in={showDriverFilters}>
-                                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'action.hover' }}>
-                                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                                            <Typography variant="subtitle2">فلترة المندوبين</Typography>
-                                            <Button size="small" onClick={resetFilters} startIcon={<ClearAll />}>
-                                                إعادة تعيين
-                                            </Button>
-                                        </Box>
-                                        <Grid container spacing={2}>
-                                            <Grid item xs={12} sm={6}>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={driverFilters.showOnlineOnly}
-                                                            onChange={(e) => setDriverFilters({
-                                                                ...driverFilters,
-                                                                showOnlineOnly: e.target.checked,
-                                                                showOfflineOnly: e.target.checked ? false : driverFilters.showOfflineOnly,
-                                                            })}
-                                                        />
-                                                    }
-                                                    label="المندوبين المتصلين فقط"
-                                                />
-                                            </Grid>
-                                            <Grid item xs={12} sm={6}>
-                                                <FormControlLabel
-                                                    control={
-                                                        <Switch
-                                                            checked={driverFilters.showOfflineOnly}
-                                                            onChange={(e) => setDriverFilters({
-                                                                ...driverFilters,
-                                                                showOfflineOnly: e.target.checked,
-                                                                showOnlineOnly: e.target.checked ? false : driverFilters.showOnlineOnly,
-                                                            })}
-                                                        />
-                                                    }
-                                                    label="المندوبين غير المتصلين"
-                                                />
-                                            </Grid>
+                            <Collapse in={showDriverFilters}>
+                                <Paper sx={{ p: spacing.card, mb: 2, bgcolor: 'action.hover' }}>
+                                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                        <Typography variant="subtitle2">فلترة المندوبين</Typography>
+                                        <Button size="small" onClick={resetFilters} startIcon={<ClearAll />}>
+                                            إعادة تعيين
+                                        </Button>
+                                    </Box>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12} sm={6}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={driverFilters.showOnlineOnly}
+                                                        onChange={(e) => setDriverFilters({
+                                                            ...driverFilters,
+                                                            showOnlineOnly: e.target.checked,
+                                                            showOfflineOnly: e.target.checked ? false : driverFilters.showOfflineOnly,
+                                                        })}
+                                                        size="small"
+                                                    />
+                                                }
+                                                label="المندوبين المتصلين فقط"
+                                            />
                                         </Grid>
-                                    </Paper>
-                                </Fade>
-                            )}
+                                        <Grid item xs={12} sm={6}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={driverFilters.showOfflineOnly}
+                                                        onChange={(e) => setDriverFilters({
+                                                            ...driverFilters,
+                                                            showOfflineOnly: e.target.checked,
+                                                            showOnlineOnly: e.target.checked ? false : driverFilters.showOnlineOnly,
+                                                        })}
+                                                        size="small"
+                                                    />
+                                                }
+                                                label="المندوبين غير المتصلين"
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </Paper>
+                            </Collapse>
                             
                             <DriverLocationMap
                                 ref={mapRef}
                                 drivers={driversList}
                                 selectedDriver={selectedDriver}
                                 onDriverSelect={handleViewDriverLocation}
-                                height={showDriverFilters ? 460 : 520}
+                                height={showDriverFilters ? mapHeight - 80 : mapHeight}
                                 center={mapCenter}
                                 zoom={mapZoom}
                                 onZoomChange={setMapZoom}
@@ -614,8 +569,8 @@ export default function MapPage() {
                         </Paper>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 2, height: 650, overflow: 'auto' }}>
-                            <Typography variant="h6" gutterBottom>
+                        <Paper sx={{ p: spacing.card, height: sidePanelHeight, overflow: 'auto' }}>
+                            <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom sx={{ fontSize: fontSize.h3 }}>
                                 قائمة المندوبين
                             </Typography>
                             {driversLoading ? (
@@ -625,7 +580,7 @@ export default function MapPage() {
                                     ))}
                                 </Box>
                             ) : (
-                                <List>
+                                <List sx={{ p: 0 }}>
                                     {driversList.map((driver) => (
                                         <ListItem
                                             key={driver.id}
@@ -638,21 +593,24 @@ export default function MapPage() {
                                                 cursor: 'pointer',
                                                 bgcolor: selectedDriver?.id === driver.id ? 'action.selected' : 'transparent',
                                                 transition: 'all 0.2s ease',
+                                                p: isMobile ? 1 : 1.5,
                                                 '&:hover': {
-                                                    transform: 'translateX(-4px)',
+                                                    transform: isMobile ? 'none' : 'translateX(-4px)',
                                                     bgcolor: 'action.hover',
                                                 },
                                             }}
                                         >
                                             <ListItemAvatar>
-                                                <Avatar src={driver.avatar}>
+                                                <Avatar src={driver.avatar} sx={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40 }}>
                                                     {driver.name?.charAt(0)}
                                                 </Avatar>
                                             </ListItemAvatar>
                                             <ListItemText
                                                 primary={
                                                     <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                                        {driver.name}
+                                                        <Typography variant="body2" fontWeight="bold">
+                                                            {driver.name}
+                                                        </Typography>
                                                         {driver.rating && (
                                                             <Rating value={driver.rating} readOnly size="small" />
                                                         )}
@@ -664,11 +622,11 @@ export default function MapPage() {
                                                             label={driver.isOnline ? '🟢 متصل' : '⚫ غير متصل'}
                                                             size="small"
                                                             color={driver.isOnline ? 'success' : 'default'}
-                                                            sx={{ height: 20, fontSize: 11 }}
+                                                            sx={{ height: 20, fontSize: 10, mt: 0.5 }}
                                                         />
                                                         {driver.location && (
                                                             <Typography variant="caption" display="block" color="textSecondary" mt={0.5}>
-                                                                آخر تحديث: {new Date(driver.location.updatedAt).toLocaleTimeString()}
+                                                                {new Date(driver.location.updatedAt).toLocaleTimeString()}
                                                             </Typography>
                                                         )}
                                                     </Box>
@@ -677,7 +635,7 @@ export default function MapPage() {
                                         </ListItem>
                                     ))}
                                     {driversList.length === 0 && (
-                                        <Alert severity="info">
+                                        <Alert severity="info" sx={{ mt: 2 }}>
                                             لا يوجد مندوبين مطابقين للفلتر المحدد
                                         </Alert>
                                     )}
@@ -690,20 +648,18 @@ export default function MapPage() {
 
             {/* تبويب الطلبات */}
             {activeTab === TABS.ORDERS && (
-                <Grid container spacing={3}>
+                <Grid container spacing={spacing.card}>
                     <Grid item xs={12} md={8}>
-                        <Paper sx={{ p: 2, height: 650 }}>
+                        <Paper sx={{ p: spacing.card }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-                                <Typography variant="h6">
+                                <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: fontSize.h3 }}>
                                     تتبع الطلب {selectedOrder && `#${selectedOrder._id.slice(-6)}`}
                                 </Typography>
-                                <Box display="flex" gap={1}>
+                                <Box display="flex" gap={0.5}>
                                     <Tooltip title="تحديث الخريطة">
-                                        <span>
-                                            <IconButton onClick={refreshAllData} size="small">
-                                                <Refresh />
-                                            </IconButton>
-                                        </span>
+                                        <IconButton onClick={refreshAllData} size="small">
+                                            <Refresh />
+                                        </IconButton>
                                     </Tooltip>
                                     <Tooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
@@ -719,15 +675,15 @@ export default function MapPage() {
                             </Box>
                             <OrderTrackingMap
                                 orderId={selectedOrder?._id}
-                                height={560}
+                                height={mapHeight}
                                 center={mapCenter}
                                 zoom={mapZoom}
                             />
                         </Paper>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 2, height: 650, overflow: 'auto' }}>
-                            <Typography variant="h6" gutterBottom>
+                        <Paper sx={{ p: spacing.card, height: sidePanelHeight, overflow: 'auto' }}>
+                            <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom sx={{ fontSize: fontSize.h3 }}>
                                 الطلبات النشطة
                             </Typography>
                             {ordersLoading ? (
@@ -737,7 +693,7 @@ export default function MapPage() {
                                     ))}
                                 </Box>
                             ) : (
-                                <List>
+                                <List sx={{ p: 0 }}>
                                     {(activeOrders?.data?.orders || []).map((order) => (
                                         <ListItem
                                             key={order._id}
@@ -748,18 +704,23 @@ export default function MapPage() {
                                                 borderRadius: 1, 
                                                 mb: 1,
                                                 cursor: 'pointer',
+                                                p: isMobile ? 1 : 1.5,
                                                 transition: 'all 0.2s ease',
                                                 '&:hover': {
-                                                    transform: 'translateX(-4px)',
+                                                    transform: isMobile ? 'none' : 'translateX(-4px)',
                                                     bgcolor: 'action.hover',
                                                 },
                                             }}
                                         >
                                             <ListItemText
-                                                primary={`طلب #${order._id.slice(-6)}`}
+                                                primary={
+                                                    <Typography variant="body2" fontWeight="bold">
+                                                        طلب #{order._id.slice(-6)}
+                                                    </Typography>
+                                                }
                                                 secondary={
                                                     <Box component="span">
-                                                        <Typography variant="caption" display="block">
+                                                        <Typography variant="caption" display="block" color="textSecondary">
                                                             {order.store?.name || order.storeId}
                                                         </Typography>
                                                         <Chip
@@ -776,6 +737,11 @@ export default function MapPage() {
                                             />
                                         </ListItem>
                                     ))}
+                                    {(activeOrders?.data?.orders || []).length === 0 && (
+                                        <Alert severity="info" sx={{ mt: 2 }}>
+                                            لا توجد طلبات نشطة
+                                        </Alert>
+                                    )}
                                 </List>
                             )}
                         </Paper>
@@ -785,45 +751,39 @@ export default function MapPage() {
 
             {/* تبويب المتاجر */}
             {activeTab === TABS.STORES && (
-                <Grid container spacing={3}>
+                <Grid container spacing={spacing.card}>
                     <Grid item xs={12} md={8}>
-                        <Paper sx={{ p: 2, height: 650, position: 'relative' }}>
+                        <Paper sx={{ p: spacing.card, position: 'relative' }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-                                <Typography variant="h6">
+                                <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: fontSize.h3 }}>
                                     المتاجر القريبة
                                 </Typography>
-                                <Box display="flex" gap={1}>
+                                <Box display="flex" gap={0.5}>
                                     <Tooltip title="تحديث الخريطة">
-                                        <span>
-                                            <IconButton onClick={refreshAllData} disabled={isStoresFetching} size="small">
-                                                <Refresh />
-                                            </IconButton>
-                                        </span>
+                                        <IconButton onClick={refreshAllData} disabled={isStoresFetching} size="small">
+                                            <Refresh />
+                                        </IconButton>
                                     </Tooltip>
-                                    {storesWithoutCoords.length > 0 && (
+                                    {storesWithoutCoords.length > 0 && !isMobile && (
                                         <Tooltip title={`تحديث مواقع ${storesWithoutCoords.length} متجر`}>
-                                            <span>
-                                                <IconButton 
-                                                    onClick={handleUpdateStoresCoordinates} 
-                                                    disabled={updatingStores}
-                                                    size="small"
-                                                    color="warning"
-                                                >
-                                                    <Update />
-                                                </IconButton>
-                                            </span>
+                                            <IconButton 
+                                                onClick={handleUpdateStoresCoordinates} 
+                                                disabled={updatingStores}
+                                                size="small"
+                                                color="warning"
+                                            >
+                                                <Update />
+                                            </IconButton>
                                         </Tooltip>
                                     )}
                                     <Tooltip title="موقعي">
-                                        <span>
-                                            <IconButton 
-                                                onClick={getUserLocation} 
-                                                disabled={loadingLocation}
-                                                size="small"
-                                            >
-                                                {loadingLocation ? <CircularProgress size={20} /> : <MyLocation />}
-                                            </IconButton>
-                                        </span>
+                                        <IconButton 
+                                            onClick={getUserLocation} 
+                                            disabled={loadingLocation}
+                                            size="small"
+                                        >
+                                            {loadingLocation ? <CircularProgress size={20} /> : <MyLocation />}
+                                        </IconButton>
                                     </Tooltip>
                                     <Tooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
@@ -850,7 +810,7 @@ export default function MapPage() {
                                 userLocation={userLocation}
                                 onStoreSelect={handleStoreSelect}
                                 onRefresh={handleUpdateStoresCoordinates}
-                                height={560}
+                                height={mapHeight}
                                 center={mapCenter}
                                 zoom={mapZoom}
                                 onZoomChange={setMapZoom}
@@ -858,10 +818,10 @@ export default function MapPage() {
                         </Paper>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <Paper sx={{ p: 2, height: 650, overflow: 'auto' }}>
-                            <Typography variant="h6" gutterBottom>
+                        <Paper sx={{ p: spacing.card, height: sidePanelHeight, overflow: 'auto' }}>
+                            <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom sx={{ fontSize: fontSize.h3 }}>
                                 المتاجر القريبة
-                                {storesWithoutCoords.length > 0 && (
+                                {storesWithoutCoords.length > 0 && !isMobile && (
                                     <Chip 
                                         size="small" 
                                         label={`${storesWithoutCoords.length} بدون إحداثيات`}
@@ -882,8 +842,8 @@ export default function MapPage() {
                                     ))}
                                 </Box>
                             ) : (
-                                <List>
-                                    {storesList.slice(0, 10).map((store) => {
+                                <List sx={{ p: 0 }}>
+                                    {storesList.slice(0, isMobile ? 5 : 10).map((store) => {
                                         const hasCoords = store.address?.latitude || store.location?.coordinates;
                                         return (
                                             <ListItem 
@@ -891,28 +851,29 @@ export default function MapPage() {
                                                 sx={{ 
                                                     borderRadius: 1, 
                                                     mb: 1,
+                                                    p: isMobile ? 1 : 1.5,
                                                     opacity: hasCoords ? 1 : 0.6,
                                                     bgcolor: !hasCoords ? 'action.hover' : 'transparent',
                                                     transition: 'all 0.2s ease',
                                                     '&:hover': {
-                                                        transform: 'translateX(-4px)',
+                                                        transform: isMobile ? 'none' : 'translateX(-4px)',
                                                         bgcolor: 'action.selected',
                                                     },
                                                 }}
                                             >
                                                 <ListItemAvatar>
-                                                    <Avatar src={store.logo}>
+                                                    <Avatar src={store.logo} sx={{ width: isMobile ? 32 : 40, height: isMobile ? 32 : 40 }}>
                                                         <Storefront />
                                                     </Avatar>
                                                 </ListItemAvatar>
                                                 <ListItemText
                                                     primary={
-                                                        <Box display="flex" alignItems="center" gap={1}>
-                                                            {store.name}
-                                                            {!hasCoords && (
-                                                                <Tooltip title="هذا المتجر ليس لديه إحداثيات دقيقة">
-                                                                    <VisibilityOff fontSize="small" color="warning" />
-                                                                </Tooltip>
+                                                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {store.name}
+                                                            </Typography>
+                                                            {!hasCoords && isMobile && (
+                                                                <VisibilityOff fontSize="small" color="warning" />
                                                             )}
                                                         </Box>
                                                     }
@@ -934,24 +895,30 @@ export default function MapPage() {
                                         );
                                     })}
                                     {storesList.length === 0 && (
-                                        <Alert severity="info">
+                                        <Alert severity="info" sx={{ mt: 2 }}>
                                             لا توجد متاجر قريبة
                                         </Alert>
                                     )}
                                 </List>
                             )}
                             
-                            {storesWithoutCoords.length > 0 && (
+                            {storesWithoutCoords.length > 0 && isMobile && (
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<Update />}
+                                    onClick={handleUpdateStoresCoordinates}
+                                    disabled={updatingStores}
+                                    sx={{ mt: 2 }}
+                                >
+                                    {updatingStores ? <CircularProgress size={20} /> : `تحديث مواقع ${storesWithoutCoords.length} متجر`}
+                                </Button>
+                            )}
+                            
+                            {storesWithoutCoords.length > 0 && !isMobile && (
                                 <Alert severity="warning" sx={{ mt: 2 }}>
                                     يوجد {storesWithoutCoords.length} متجر بدون إحداثيات دقيقة.
-                                    <Button 
-                                        size="small" 
-                                        onClick={handleUpdateStoresCoordinates}
-                                        disabled={updatingStores}
-                                        sx={{ ml: 1 }}
-                                    >
-                                        {updatingStores ? <CircularProgress size={20} /> : 'تحديث'}
-                                    </Button>
                                 </Alert>
                             )}
                         </Paper>
@@ -961,8 +928,8 @@ export default function MapPage() {
 
             {/* تبويب البحث */}
             {activeTab === TABS.SEARCH && (
-                <Paper sx={{ p: 3 }}>
-                    <Typography variant="h6" gutterBottom>
+                <Paper sx={{ p: spacing.card }}>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom sx={{ fontSize: fontSize.h3 }}>
                         البحث عن موقع
                     </Typography>
                     <Box display="flex" gap={2} mb={3} flexWrap="wrap">
@@ -972,12 +939,14 @@ export default function MapPage() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                            size={isMobile ? "small" : "medium"}
                             sx={{ flex: 1 }}
                         />
                         <Button
                             variant="contained"
                             startIcon={<Search />}
                             onClick={handleSearch}
+                            size={isMobile ? "small" : "medium"}
                         >
                             بحث
                         </Button>
@@ -985,8 +954,8 @@ export default function MapPage() {
 
                     {searchResults.length > 0 && (
                         <List>
-                            {searchResults.map((result, index) => (
-                                <ListItem key={index} divider>
+                            {searchResults.slice(0, isMobile ? 5 : 10).map((result, index) => (
+                                <ListItem key={index} divider sx={{ flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center' }}>
                                     <ListItemAvatar>
                                         <Avatar>
                                             <LocationOn />
@@ -995,6 +964,7 @@ export default function MapPage() {
                                     <ListItemText
                                         primary={result.display_name || result.name}
                                         secondary={result.type}
+                                        sx={{ mb: isMobile ? 1 : 0 }}
                                     />
                                     <Button
                                         size="small"
@@ -1006,6 +976,7 @@ export default function MapPage() {
                                             });
                                             setActiveTab(TABS.STORES);
                                         }}
+                                        fullWidth={isMobile}
                                     >
                                         عرض على الخريطة
                                     </Button>
@@ -1013,24 +984,33 @@ export default function MapPage() {
                             ))}
                         </List>
                     )}
+                    
+                    {searchResults.length === 0 && searchQuery && (
+                        <Alert severity="info">
+                            لا توجد نتائج للبحث عن "{searchQuery}"
+                        </Alert>
+                    )}
                 </Paper>
             )}
 
-            {/* Floating Action Button */}
-            <Zoom in={true}>
-                <Fab
-                    color="primary"
-                    sx={{
-                        position: 'fixed',
-                        bottom: 24,
-                        right: 24,
-                        zIndex: 1000,
-                    }}
-                    onClick={refreshAllData}
-                >
-                    <Refresh />
-                </Fab>
-            </Zoom>
+            {/* Floating Action Button - للهواتف فقط */}
+            {isMobile && (
+                <Zoom in={true}>
+                    <Fab
+                        color="primary"
+                        size="small"
+                        sx={{
+                            position: 'fixed',
+                            bottom: 16,
+                            right: 16,
+                            zIndex: 1000,
+                        }}
+                        onClick={refreshAllData}
+                    >
+                        <Refresh />
+                    </Fab>
+                </Zoom>
+            )}
 
             {/* Snackbar */}
             <Snackbar

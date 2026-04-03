@@ -20,6 +20,13 @@ import {
   Card,
   CardContent,
   Avatar,
+  useTheme,
+  useMediaQuery,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
 } from '@mui/material';
 import {
   Add,
@@ -35,6 +42,8 @@ import {
   Storefront,
   DeliveryDining,
   People,
+  FilterList,
+  Close,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 import { usersService } from '../../api';
@@ -43,7 +52,6 @@ import UserDetails from './components/UserDetails';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatDate } from '../../utils/formatters';
 
-// ألوان وأسماء الأدوار
 const roleConfig = {
   admin: {
     name: 'مشرف',
@@ -72,9 +80,13 @@ const roleConfig = {
 };
 
 export default function Users() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const queryClient = useQueryClient();
+  
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -82,11 +94,11 @@ export default function Users() {
   const [openForm, setOpenForm] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const debouncedSearch = useDebounce(search, 500);
 
-  // جلب المستخدمين
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['users', page, pageSize, debouncedSearch, roleFilter, statusFilter],
     () => usersService.getUsers({
@@ -100,192 +112,34 @@ export default function Users() {
       onSuccess: (response) => {
         console.log('✅ Users data received:', response);
       },
-      onError: (error) => {
-        console.error('❌ Error fetching users:', error);
-        setSnackbar({
-          open: true,
-          message: 'فشل تحميل المستخدمين',
-          severity: 'error',
-        });
-      }
     }
   );
 
-  // استخراج البيانات بالشكل الصحيح
   const users = data?.data || [];
   const pagination = data?.pagination || {};
   const totalCount = pagination?.total || 0;
   const stats = data?.stats || {};
 
-  // حذف مستخدم
   const deleteMutation = useMutation(
     (id) => usersService.deleteUser(id),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
         setOpenDeleteDialog(false);
-        setSnackbar({
-          open: true,
-          message: 'تم حذف المستخدم بنجاح',
-          severity: 'success',
-        });
-      },
-      onError: (error) => {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || 'فشل حذف المستخدم',
-          severity: 'error',
-        });
+        setSnackbar({ open: true, message: 'تم حذف المستخدم بنجاح', severity: 'success' });
       },
     }
   );
 
-  // تغيير حالة المستخدم
   const toggleStatusMutation = useMutation(
     ({ id, isActive }) => usersService.updateUser(id, { isActive: !isActive }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
-        setSnackbar({
-          open: true,
-          message: 'تم تغيير حالة المستخدم بنجاح',
-          severity: 'success',
-        });
-      },
-      onError: (error) => {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || 'فشل تغيير حالة المستخدم',
-          severity: 'error',
-        });
+        setSnackbar({ open: true, message: 'تم تغيير حالة المستخدم بنجاح', severity: 'success' });
       },
     }
   );
-
-  // أعمدة الجدول
-  const columns = [
-    {
-      field: 'name',
-      headerName: 'الاسم',
-      width: 180,
-      renderCell: (params) => (
-        <Box display="flex" alignItems="center" gap={1}>
-          <Avatar
-            src={params.row.image}
-            sx={{ width: 32, height: 32 }}
-          >
-            {params.row.name?.charAt(0)}
-          </Avatar>
-          <Box>
-            <Typography variant="body2" fontWeight="500">
-              {params.value}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {params.row.email}
-            </Typography>
-          </Box>
-          {params.row.isVerified && (
-            <Tooltip title="موثق">
-              <CheckCircle sx={{ fontSize: 14, color: '#4caf50' }} />
-            </Tooltip>
-          )}
-        </Box>
-      ),
-    },
-    {
-      field: 'phone',
-      headerName: 'رقم الهاتف',
-      width: 150,
-      valueFormatter: (params) => params.value || 'غير محدد',
-    },
-    {
-      field: 'role',
-      headerName: 'الدور',
-      width: 120,
-      renderCell: (params) => {
-        const config = roleConfig[params.value] || {
-          name: params.value,
-          color: '#9e9e9e',
-          bgColor: '#9e9e9e20',
-        };
-        const Icon = config.icon || Person;
-        return (
-          <Chip
-            icon={<Icon sx={{ fontSize: 16 }} />}
-            label={config.name}
-            size="small"
-            sx={{
-              backgroundColor: config.bgColor,
-              color: config.color,
-              fontWeight: 500,
-            }}
-          />
-        );
-      },
-    },
-    {
-      field: 'isActive',
-      headerName: 'الحالة',
-      width: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value ? 'نشط' : 'غير نشط'}
-          size="small"
-          color={params.value ? 'success' : 'error'}
-          variant="outlined"
-        />
-      ),
-    },
-    {
-      field: 'isVerified',
-      headerName: 'التوثيق',
-      width: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value ? 'موثق' : 'غير موثق'}
-          size="small"
-          color={params.value ? 'primary' : 'default'}
-          variant="outlined"
-        />
-      ),
-    },
-    {
-      field: 'createdAt',
-      headerName: 'تاريخ التسجيل',
-      width: 180,
-      valueFormatter: (params) => formatDate(params.value),
-    },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 200,
-      sortable: false,
-      renderCell: (params) => (
-        <Box display="flex" gap={0.5}>
-          <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" onClick={() => handleViewDetails(params.row)}>
-              <Visibility fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="تعديل">
-            <IconButton size="small" onClick={() => handleEdit(params.row)}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={params.row.isActive ? 'تعطيل' : 'تفعيل'}>
-            <IconButton size="small" onClick={() => handleToggleStatus(params.row)}>
-              {params.row.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="حذف">
-            <IconButton size="small" onClick={() => handleDelete(params.row)} color="error">
-              <Delete fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
-    },
-  ];
 
   const handleViewDetails = (user) => {
     setSelectedUser(user);
@@ -312,93 +166,178 @@ export default function Users() {
     }
   };
 
-  // حساب الإحصائيات
   const totalUsers = stats?.total || 0;
   const activeUsers = stats?.active || 0;
   const verifiedUsers = stats?.verified || 0;
   const byRole = stats?.byRole || [];
 
+  // عرض بطاقات للهواتف
+  const renderMobileUsers = () => {
+    if (isLoading) {
+      return (
+        <Box textAlign="center" py={4}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return (
+      <List sx={{ width: '100%' }}>
+        {users.map((user) => (
+          <Card key={user._id} sx={{ mb: 1.5, p: 1.5 }}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Avatar src={user.image} sx={{ width: 48, height: 48 }}>
+                {user.name?.charAt(0)}
+              </Avatar>
+              <Box flex={1}>
+                <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                  <Typography variant="subtitle2" fontWeight="bold">
+                    {user.name}
+                  </Typography>
+                  {user.isVerified && (
+                    <CheckCircle sx={{ fontSize: 14, color: '#4caf50' }} />
+                  )}
+                </Box>
+                <Typography variant="caption" color="textSecondary" display="block">
+                  {user.phone}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" display="block">
+                  {user.email}
+                </Typography>
+                <Box display="flex" gap={1} mt={1} flexWrap="wrap">
+                  <Chip
+                    icon={React.createElement(roleConfig[user.role]?.icon || Person)}
+                    label={roleConfig[user.role]?.name || user.role}
+                    size="small"
+                    sx={{
+                      backgroundColor: roleConfig[user.role]?.bgColor,
+                      color: roleConfig[user.role]?.color,
+                    }}
+                  />
+                  <Chip
+                    label={user.isActive ? 'نشط' : 'غير نشط'}
+                    size="small"
+                    color={user.isActive ? 'success' : 'error'}
+                    variant="outlined"
+                  />
+                </Box>
+              </Box>
+              <Box>
+                <IconButton size="small" onClick={() => handleViewDetails(user)}>
+                  <Visibility fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={() => handleEdit(user)}>
+                  <Edit fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={() => handleToggleStatus(user)}>
+                  {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+                </IconButton>
+              </Box>
+            </Box>
+          </Card>
+        ))}
+      </List>
+    );
+  };
+
   return (
-    <Box dir="rtl" sx={{ p: 3 }}>
+    <Box 
+      dir="rtl" 
+      sx={{ 
+        p: { xs: 1.5, sm: 2, md: 3 },
+        width: '100%',
+        overflowX: 'hidden',
+      }}
+    >
       {/* بطاقات الإحصائيات */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        <Grid item xs={6} sm={6} md={3}>
           <Card sx={{ bgcolor: '#1976d210', borderRight: '4px solid #1976d2' }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary">
                     إجمالي المستخدمين
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold">
                     {totalUsers}
                   </Typography>
                 </Box>
-                <People sx={{ fontSize: 48, color: '#1976d2', opacity: 0.5 }} />
+                <People sx={{ fontSize: { xs: 32, sm: 48 }, color: '#1976d2', opacity: 0.5 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <Card sx={{ bgcolor: '#4caf5010', borderRight: '4px solid #4caf50' }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary">
                     المستخدمين النشطين
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="success.main">
+                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="success.main">
                     {activeUsers}
                   </Typography>
                 </Box>
-                <CheckCircle sx={{ fontSize: 48, color: '#4caf50', opacity: 0.5 }} />
+                <CheckCircle sx={{ fontSize: { xs: 32, sm: 48 }, color: '#4caf50', opacity: 0.5 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <Card sx={{ bgcolor: '#ff980010', borderRight: '4px solid #ff9800' }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary">
                     المستخدمين الموثقين
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="warning.main">
+                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="warning.main">
                     {verifiedUsers}
                   </Typography>
                 </Box>
-                <AdminPanelSettings sx={{ fontSize: 48, color: '#ff9800', opacity: 0.5 }} />
+                <AdminPanelSettings sx={{ fontSize: { xs: 32, sm: 48 }, color: '#ff9800', opacity: 0.5 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <Card sx={{ bgcolor: '#9c27b010', borderRight: '4px solid #9c27b0' }}>
-            <CardContent>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary">
                     الأدوار المتاحة
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="secondary.main">
+                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="secondary.main">
                     {byRole.length}
                   </Typography>
                 </Box>
-                <Person sx={{ fontSize: 48, color: '#9c27b0', opacity: 0.5 }} />
+                <Person sx={{ fontSize: { xs: 32, sm: 48 }, color: '#9c27b0', opacity: 0.5 }} />
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
         {/* شريط العنوان والأزرار */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-          <Typography variant="h5" fontWeight="bold">
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             إدارة المستخدمين
           </Typography>
-          <Box display="flex" gap={2}>
+          <Box display="flex" gap={1} flexWrap="wrap">
+            {isMobile && (
+              <Button
+                variant="outlined"
+                startIcon={<FilterList />}
+                onClick={() => setShowFilters(!showFilters)}
+                size="small"
+              >
+                فلتر
+              </Button>
+            )}
             <Button
               variant="outlined"
               startIcon={<Refresh />}
@@ -409,172 +348,164 @@ export default function Users() {
               تحديث
             </Button>
             <Button
-              variant="outlined"
-              startIcon={<Download />}
-              size="small"
-            >
-              تصدير
-            </Button>
-            <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => {
                 setSelectedUser(null);
                 setOpenForm(true);
               }}
+              size="small"
             >
-              مستخدم جديد
+              {isMobile ? 'جديد' : 'مستخدم جديد'}
             </Button>
           </Box>
         </Box>
 
         {/* فلاتر البحث */}
-        <Box display="flex" gap={2} mb={3} flexWrap="wrap">
-          <TextField
-            label="بحث"
-            variant="outlined"
-            size="small"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 2, minWidth: 200 }}
-            placeholder="بحث بالاسم أو البريد أو رقم الهاتف..."
-            InputProps={{
-              startAdornment: <Person sx={{ mr: 1, color: 'text.secondary' }} fontSize="small" />,
-            }}
-          />
-          <TextField
-            select
-            label="الدور"
-            size="small"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            sx={{ width: 150 }}
-          >
-            <MenuItem value="all">الكل</MenuItem>
-            {Object.entries(roleConfig).map(([key, config]) => (
-              <MenuItem key={key} value={key}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <config.icon fontSize="small" sx={{ color: config.color }} />
-                  {config.name}
-                </Box>
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="الحالة"
-            size="small"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            sx={{ width: 150 }}
-          >
-            <MenuItem value="all">الكل</MenuItem>
-            <MenuItem value="active">نشط</MenuItem>
-            <MenuItem value="inactive">غير نشط</MenuItem>
-          </TextField>
-        </Box>
-
-        {/* شريط إحصائيات الأدوار */}
-        {byRole.length > 0 && (
-          <Box display="flex" gap={1} mb={3} flexWrap="wrap" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider', py: 1.5 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 2, alignSelf: 'center' }}>
-              التوزيع حسب الدور:
-            </Typography>
-            {byRole.map((role) => {
-              const config = roleConfig[role._id] || {
-                name: role._id,
-                color: '#9e9e9e',
-                bgColor: '#9e9e9e20',
-                icon: Person,
-              };
-              const Icon = config.icon;
-              const isActive = roleFilter === role._id;
-              return (
-                <Chip
-                  key={role._id}
-                  icon={<Icon sx={{ fontSize: 16 }} />}
-                  label={`${config.name}: ${role.count}`}
+        <Collapse in={!isMobile || showFilters}>
+          <Box mb={2}>
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} sm={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="بحث"
                   size="small"
-                  onClick={() => setRoleFilter(isActive ? 'all' : role._id)}
-                  sx={{
-                    backgroundColor: isActive ? config.color : config.bgColor,
-                    color: isActive ? '#fff' : config.color,
-                    fontWeight: isActive ? 'bold' : 'normal',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: config.color,
-                      color: '#fff',
-                    },
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="بحث بالاسم أو البريد أو رقم الهاتف..."
+                  InputProps={{
+                    startAdornment: <Person sx={{ mr: 1, color: 'text.secondary' }} fontSize="small" />,
                   }}
                 />
-              );
-            })}
-            {roleFilter !== 'all' && (
-              <Chip
-                label="إلغاء الفلتر"
-                size="small"
-                onClick={() => setRoleFilter('all')}
-                sx={{ cursor: 'pointer' }}
-                variant="outlined"
-              />
-            )}
+              </Grid>
+              <Grid item xs={6} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  select
+                  label="الدور"
+                  size="small"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <MenuItem value="all">الكل</MenuItem>
+                  {Object.entries(roleConfig).map(([key, config]) => (
+                    <MenuItem key={key} value={key}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <config.icon fontSize="small" sx={{ color: config.color }} />
+                        {config.name}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={6} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  select
+                  label="الحالة"
+                  size="small"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="all">الكل</MenuItem>
+                  <MenuItem value="active">نشط</MenuItem>
+                  <MenuItem value="inactive">غير نشط</MenuItem>
+                </TextField>
+              </Grid>
+              {isMobile && (
+                <Grid item xs={12}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={() => {
+                      setSearch('');
+                      setRoleFilter('all');
+                      setStatusFilter('all');
+                      setShowFilters(false);
+                    }}
+                    size="small"
+                  >
+                    مسح الفلترة
+                  </Button>
+                </Grid>
+              )}
+            </Grid>
           </Box>
+        </Collapse>
+
+        {/* عرض حسب نوع الجهاز */}
+        {isMobile ? (
+          renderMobileUsers()
+        ) : (
+          <DataGrid
+            rows={users}
+            columns={[
+              { field: 'name', headerName: 'الاسم', width: 180 },
+              { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
+              { field: 'email', headerName: 'البريد الإلكتروني', width: 200 },
+              { field: 'role', headerName: 'الدور', width: 120 },
+              { field: 'isActive', headerName: 'الحالة', width: 100 },
+              { field: 'createdAt', headerName: 'تاريخ التسجيل', width: 180 },
+              { field: 'actions', headerName: 'الإجراءات', width: 200 },
+            ]}
+            loading={isLoading}
+            rowCount={totalCount}
+            paginationMode="server"
+            page={page}
+            pageSize={pageSize}
+            onPageChange={(newPage) => setPage(newPage)}
+            onPageSizeChange={(newSize) => setPageSize(newSize)}
+            rowsPerPageOptions={[10, 20, 50, 100]}
+            autoHeight
+            disableSelectionOnClick
+            getRowId={(row) => row._id}
+          />
         )}
 
-        {/* جدول المستخدمين */}
-        <DataGrid
-          rows={users}
-          columns={columns}
-          loading={isLoading}
-          rowCount={totalCount}
-          paginationMode="server"
-          page={page}
-          pageSize={pageSize}
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(newSize) => setPageSize(newSize)}
-          rowsPerPageOptions={[10, 20, 50, 100]}
-          autoHeight
-          disableSelectionOnClick
-          getRowId={(row) => row._id}
-          localeText={{
-            toolbarColumns: 'الأعمدة',
-            toolbarFilters: 'فلترة',
-            toolbarDensity: 'كثافة العرض',
-            toolbarExport: 'تصدير',
-            noRowsLabel: isLoading ? 'جاري التحميل...' : 'لا توجد بيانات',
-            footerTotalRows: 'إجمالي الصفوف:',
-          }}
-          sx={{
-            '& .MuiDataGrid-cell': {
-              borderBottom: '1px solid #e0e0e0',
-            },
-          }}
-        />
+        {/* ترقيم الصفحات للهواتف */}
+        {isMobile && totalCount > pageSize && (
+          <Box display="flex" justifyContent="center" mt={2}>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 0}
+              size="small"
+              sx={{ mx: 0.5 }}
+            >
+              السابق
+            </Button>
+            <Typography variant="body2" sx={{ mx: 1, alignSelf: 'center' }}>
+              صفحة {page + 1} من {Math.ceil(totalCount / pageSize)}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * pageSize >= totalCount}
+              size="small"
+              sx={{ mx: 0.5 }}
+            >
+              التالي
+            </Button>
+          </Box>
+        )}
       </Paper>
 
-      {/* نموذج إضافة/تعديل مستخدم */}
+      {/* باقي الحوارات كما هي */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          {selectedUser ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}
-        </DialogTitle>
+        <DialogTitle>{selectedUser ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}</DialogTitle>
         <DialogContent>
           <UserForm
             user={selectedUser}
             onSuccess={() => {
               setOpenForm(false);
               queryClient.invalidateQueries('users');
-              setSnackbar({
-                open: true,
-                message: selectedUser ? 'تم تحديث المستخدم' : 'تم إضافة المستخدم',
-                severity: 'success',
-              });
+              setSnackbar({ open: true, message: selectedUser ? 'تم تحديث المستخدم' : 'تم إضافة المستخدم', severity: 'success' });
             }}
             onCancel={() => setOpenForm(false)}
           />
         </DialogContent>
       </Dialog>
 
-      {/* تفاصيل المستخدم */}
       <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
         <DialogTitle>تفاصيل المستخدم</DialogTitle>
         <DialogContent dividers>
@@ -585,38 +516,22 @@ export default function Users() {
         </DialogActions>
       </Dialog>
 
-      {/* حوار تأكيد الحذف */}
       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
         <DialogTitle>تأكيد الحذف</DialogTitle>
         <DialogContent>
-          <Typography>
-            هل أنت متأكد من حذف المستخدم "{selectedUser?.name}"؟
-            هذا الإجراء لا يمكن التراجع عنه.
-          </Typography>
+          <Typography>هل أنت متأكد من حذف المستخدم "{selectedUser?.name}"؟</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">
-            حذف
-          </Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">حذف</Button>
         </DialogActions>
       </Dialog>
 
-      {/* إشعارات */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          severity={snackbar.severity} 
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );
 }
+
+import { CircularProgress } from '@mui/material';

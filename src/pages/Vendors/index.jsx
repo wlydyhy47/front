@@ -11,65 +11,55 @@ import {
   IconButton,
   Tooltip,
   Grid,
-  Card,
-  CardContent,
   Avatar,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Rating,
   Alert,
   Snackbar,
-  Rating,
 } from '@mui/material';
 import {
-  Edit,
-  Delete,
   Visibility,
-  Refresh,
-  Download,
   Verified,
-  VerifiedUser,
+  Refresh,
   Block,
   CheckCircle,
+  Storefront,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { vendorsService } from '../../api';
+import ResponsiveTable from '../../components/Common/ResponsiveTable';
+import ResponsiveStatsCards from '../../components/Common/ResponsiveStatsCards';
+import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
+import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
+import { useResponsive } from '../../hooks/useResponsive';
 import { formatDate } from '../../utils/formatters';
 
 export default function Vendors() {
+  const { isMobile, fontSize, spacing } = useResponsive();
   const queryClient = useQueryClient();
+  
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+  });
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [openDetails, setOpenDetails] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
-  // جلب التجار
-  const { data, isLoading, refetch } = useQuery(
-    ['vendors', page, pageSize, search, statusFilter],
+
+  const { data, isLoading, refetch, isFetching } = useQuery(
+    ['vendors', page, pageSize, filters],
     () => vendorsService.getVendors({
       page: page + 1,
       limit: pageSize,
-      search: search || undefined,
-      isActive: statusFilter !== 'all' ? statusFilter === 'active' : undefined,
-    }),
-    {
-      onSuccess: (response) => {
-        console.log('✅ Vendors data received:', response);
-      }
-    }
+      search: filters.search || undefined,
+      isActive: filters.status !== 'all' ? filters.status === 'active' : undefined,
+    })
   );
-  
-  // استخراج البيانات بالشكل الصحيح
+
   const vendors = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
-  
-  // توثيق تاجر
+
   const verifyMutation = useMutation(
     (id) => vendorsService.verifyVendor(id),
     {
@@ -77,17 +67,9 @@ export default function Vendors() {
         queryClient.invalidateQueries('vendors');
         setSnackbar({ open: true, message: 'تم توثيق التاجر بنجاح', severity: 'success' });
       },
-      onError: (error) => {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || 'فشل توثيق التاجر',
-          severity: 'error',
-        });
-      },
     }
   );
-  
-  // تغيير حالة التاجر
+
   const updateStatusMutation = useMutation(
     ({ id, isActive }) => vendorsService.updateVendorStatus(id, { isActive }),
     {
@@ -95,16 +77,19 @@ export default function Vendors() {
         queryClient.invalidateQueries('vendors');
         setSnackbar({ open: true, message: 'تم تغيير حالة التاجر', severity: 'success' });
       },
-      onError: (error) => {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || 'فشل تغيير الحالة',
-          severity: 'error',
-        });
-      },
     }
   );
-  
+
+  const activeVendors = vendors.filter(v => v.isActive).length;
+  const verifiedVendors = vendors.filter(v => v.isVerified).length;
+
+  const statsCards = [
+    { title: 'إجمالي التجار', value: totalCount, icon: Storefront, color: '#2196f3' },
+    { title: 'تجار نشطين', value: activeVendors, icon: CheckCircle, color: '#4caf50' },
+    { title: 'تجار موثقين', value: verifiedVendors, icon: Verified, color: '#ff9800' },
+    { title: 'متوسط التقييم', value: stats.avgRating || '4.5', icon: Rating, color: '#9c27b0' },
+  ];
+
   const columns = [
     {
       field: 'avatar',
@@ -123,17 +108,14 @@ export default function Vendors() {
       field: 'storeCount',
       headerName: 'عدد المتاجر',
       width: 120,
-      valueGetter: (params) => params.row.stores?.length || 0,
+      valueGetter: (row) => row.stores?.length || 0,
     },
     {
       field: 'rating',
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
-        <Box display="flex" alignItems="center">
-          <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
-          <Typography variant="caption">({params.value || 0})</Typography>
-        </Box>
+        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
       ),
     },
     {
@@ -141,11 +123,7 @@ export default function Vendors() {
       headerName: 'موثق',
       width: 100,
       renderCell: (params) => (
-        params.value ? (
-          <Chip icon={<VerifiedUser />} label="موثق" size="small" color="primary" />
-        ) : (
-          <Chip label="غير موثق" size="small" variant="outlined" />
-        )
+        params.value ? <Verified color="primary" /> : <Chip label="غير موثق" size="small" variant="outlined" />
       ),
     },
     {
@@ -153,28 +131,28 @@ export default function Vendors() {
       headerName: 'الحالة',
       width: 100,
       renderCell: (params) => (
-        <Chip
-          label={params.value ? 'نشط' : 'غير نشط'}
-          size="small"
-          color={params.value ? 'success' : 'error'}
-        />
+        <Chip label={params.value ? 'نشط' : 'غير نشط'} size="small" color={params.value ? 'success' : 'error'} variant="outlined" />
       ),
     },
     {
       field: 'createdAt',
       headerName: 'تاريخ التسجيل',
       width: 150,
-      valueFormatter: (params) => formatDate(params.value),
+      valueFormatter: (value) => formatDate(value),
+      hideOnMobile: true,
     },
     {
       field: 'actions',
       headerName: 'الإجراءات',
-      width: 180,
-      sortable: false,
+      width: 150,
+      hideOnDesktop: false,
       renderCell: (params) => (
-        <Box>
+        <Box display="flex" gap={0.5}>
           <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" onClick={() => handleViewDetails(params.row)}>
+            <IconButton size="small" onClick={() => {
+              setSelectedVendor(params.row);
+              setOpenDetails(true);
+            }}>
               <Visibility fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -186,204 +164,151 @@ export default function Vendors() {
             </Tooltip>
           )}
           <Tooltip title={params.row.isActive ? 'تعطيل' : 'تفعيل'}>
-            <IconButton
-              size="small"
-              onClick={() => updateStatusMutation.mutate({ id: params.row._id, isActive: !params.row.isActive })}
-              color={params.row.isActive ? 'error' : 'success'}
-            >
-              {params.row.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+            <IconButton size="small" onClick={() => updateStatusMutation.mutate({ id: params.row._id, isActive: !params.row.isActive })}>
+              {params.row.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
             </IconButton>
           </Tooltip>
         </Box>
       ),
     },
   ];
-  
-  const handleViewDetails = (vendor) => {
-    setSelectedVendor(vendor);
-    setOpenDetails(true);
+
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      status: 'all',
+    });
   };
-  
+
   return (
-    <Box dir="rtl" sx={{ p: 3 }}>
-      {/* إحصائيات سريعة */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="primary">
-                {totalCount}
-              </Typography>
-              <Typography variant="body2">إجمالي التجار</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="success.main">
-                {vendors.filter(v => v.isActive).length}
-              </Typography>
-              <Typography variant="body2">تجار نشطين</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="primary.main">
-                {vendors.filter(v => v.isVerified).length}
-              </Typography>
-              <Typography variant="body2">تجار موثقين</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="warning.main">
-                {vendors.filter(v => !v.isActive).length}
-              </Typography>
-              <Typography variant="body2">تجار غير نشطين</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-      
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" fontWeight="bold">
-            إدارة التجار
+    <Box sx={{ p: spacing.page }}>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
+        إدارة التجار
+      </Typography>
+
+      <ResponsiveStatsCards cards={statsCards} columnsDesktop={4} columnsTablet={2} columnsMobile={2} spacing={spacing.section} />
+
+      <Paper sx={{ p: spacing.card }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
+            قائمة التجار
           </Typography>
-          <Box display="flex" gap={2}>
-            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small">
-              تحديث
-            </Button>
-            <Button variant="outlined" startIcon={<Download />} size="small">
-              تصدير
-            </Button>
-          </Box>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
+            تحديث
+          </Button>
         </Box>
-        
-        {/* فلاتر البحث */}
-        <Grid container spacing={2} mb={3}>
-          <Grid item xs={12} md={8}>
+
+        <ResponsiveFilters onReset={resetFilters}>
+          <Grid item xs={12} sm={6} md={8}>
             <TextField
               fullWidth
               label="بحث"
               size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               placeholder="الاسم، رقم الهاتف، البريد الإلكتروني..."
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               select
               label="الحالة"
               size="small"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
               <MenuItem value="all">الكل</MenuItem>
               <MenuItem value="active">نشط</MenuItem>
               <MenuItem value="inactive">غير نشط</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={1}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                setSearch('');
-                setStatusFilter('all');
-              }}
-            >
-              مسح
-            </Button>
-          </Grid>
-        </Grid>
-        
-        {/* جدول التجار */}
-        <DataGrid
-          rows={vendors}
+        </ResponsiveFilters>
+
+        <ResponsiveTable
+          data={vendors}
           columns={columns}
           loading={isLoading}
-          rowCount={totalCount}
-          paginationMode="server"
-          page={page}
-          pageSize={pageSize}
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(newSize) => setPageSize(newSize)}
-          rowsPerPageOptions={[10, 20, 50, 100]}
-          autoHeight
-          disableSelectionOnClick
-          getRowId={(row) => row._id}
+          onRowClick={(vendor) => {
+            setSelectedVendor(vendor);
+            setOpenDetails(true);
+          }}
+          emptyMessage="لا يوجد تجار"
+          renderMobileCard={(vendor) => (
+            <Paper key={vendor._id} sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} onClick={() => {
+              setSelectedVendor(vendor);
+              setOpenDetails(true);
+            }}>
+              <Box display="flex" gap={2}>
+                <Avatar src={vendor.avatar} sx={{ width: 50, height: 50 }}>
+                  {vendor.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {vendor.name}
+                    </Typography>
+                    <Chip label={vendor.isActive ? 'نشط' : 'غير نشط'} size="small" color={vendor.isActive ? 'success' : 'error'} />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {vendor.phone}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {vendor.email}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Typography variant="caption">عدد المتاجر: {vendor.stores?.length || 0}</Typography>
+                    {vendor.isVerified && <Verified fontSize="small" color="primary" />}
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+          )}
         />
       </Paper>
-      
-      {/* تفاصيل التاجر */}
-      <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
-        <DialogTitle>تفاصيل التاجر</DialogTitle>
-        <DialogContent>
-          {selectedVendor && (
-            <Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4} textAlign="center">
-                  <Avatar
-                    src={selectedVendor.avatar}
-                    sx={{ width: 100, height: 100, mx: 'auto', mb: 2 }}
-                  >
-                    {selectedVendor.name?.charAt(0)}
-                  </Avatar>
-                  <Typography variant="h6">{selectedVendor.name}</Typography>
-                  <Box display="flex" justifyContent="center" mt={1}>
-                    <Rating value={selectedVendor.rating || 0} readOnly precision={0.5} />
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={8}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>رقم الهاتف:</strong> {selectedVendor.phone}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>البريد الإلكتروني:</strong> {selectedVendor.email || '-'}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>عدد المتاجر:</strong> {selectedVendor.stores?.length || 0}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>تاريخ التسجيل:</strong> {formatDate(selectedVendor.createdAt)}
-                  </Typography>
-                  <Box display="flex" gap={1} mt={2}>
-                    <Chip
-                      label={selectedVendor.isVerified ? 'موثق' : 'غير موثق'}
-                      color={selectedVendor.isVerified ? 'primary' : 'default'}
-                    />
-                    <Chip
-                      label={selectedVendor.isActive ? 'نشط' : 'غير نشط'}
-                      color={selectedVendor.isActive ? 'success' : 'error'}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetails(false)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* إشعارات */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+
+      <ResponsiveDialog
+        open={openDetails}
+        onClose={() => setOpenDetails(false)}
+        title="تفاصيل التاجر"
+        maxWidth="md"
+        actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
       >
-        <Alert severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
+        {selectedVendor && (
+          <Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4} textAlign="center">
+                <Avatar src={selectedVendor.avatar} sx={{ width: 100, height: 100, mx: 'auto' }}>
+                  {selectedVendor.name?.charAt(0)}
+                </Avatar>
+                <Typography variant="h6" sx={{ mt: 2 }}>{selectedVendor.name}</Typography>
+                <Rating value={selectedVendor.rating || 0} readOnly precision={0.5} />
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>رقم الهاتف:</strong> {selectedVendor.phone}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>البريد الإلكتروني:</strong> {selectedVendor.email || '-'}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>عدد المتاجر:</strong> {selectedVendor.stores?.length || 0}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>تاريخ التسجيل:</strong> {formatDate(selectedVendor.createdAt)}
+                </Typography>
+                <Box display="flex" gap={1} mt={2}>
+                  <Chip label={selectedVendor.isVerified ? 'موثق' : 'غير موثق'} color={selectedVendor.isVerified ? 'primary' : 'default'} />
+                  <Chip label={selectedVendor.isActive ? 'نشط' : 'غير نشط'} color={selectedVendor.isActive ? 'success' : 'error'} />
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+      </ResponsiveDialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );

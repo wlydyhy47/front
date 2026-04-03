@@ -1,0 +1,129 @@
+/* src/styles/responsive.css */
+
+/* تحسينات عامة للهواتف */
+@media (max-width: 600px) {
+  /* تقليل حجم الخطوط في الجداول */
+  .MuiTableCell-root {
+    font-size: 0.75rem !important;
+    padding: 8px 12px !important;
+  }
+  
+  /* تحسين عرض البطاقات */
+  .MuiCardContent-root {
+    padding: 12px !important;
+  }
+  
+  /* تقليل حجم الأزرار */
+  .MuiButton-root {
+    font-size: 0.75rem !important;
+    padding: 4px 12px !important;
+    min-height: 32px !important;
+  }
+  
+  /* تحسين عرض الرسوم البيانية */
+  .recharts-wrapper {
+    font-size: 10px;
+  }
+  
+  .recharts-legend-item-text {
+    font-size: 10px !important;
+  }
+  
+  /* جعل الجداول قابلة للتمرير أفقياً */
+  .MuiTableContainer-root {
+    overflow-x: auto;
+  }
+  
+  /* تحسين عرض الحقول */
+  .MuiTextField-root {
+    margin-bottom: 12px !important;
+  }
+  
+  /* تقليل حجم الحوارات */
+  .MuiDialog-paper {
+    margin: 16px !important;
+    width: calc(100% - 32px) !important;
+  }
+  
+  /* تحسين عرض DataGrid على الهواتف */
+  .MuiDataGrid-root {
+    font-size: 0.75rem !important;
+  }
+  
+  .MuiDataGrid-cell {
+    padding: 4px 8px !important;
+  }
+  
+  /* تحسين عرض التوست */
+  .MuiSnackbar-root {
+    bottom: 16px !important;
+  }
+  
+  /* تحسين عرض الراوتراب */
+  .MuiTabs-root {
+    min-height: 40px !important;
+  }
+  
+  .MuiTab-root {
+    min-height: 40px !important;
+    padding: 0 12px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* تحسين عرض الفلاتر */
+  .MuiAccordionSummary-root {
+    min-height: 40px !important;
+  }
+  
+  /* تحسين عرض البطاقات الإحصائية */
+  .stats-card .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* تحسينات للشاشات المتوسطة (تابلت) */
+@media (min-width: 601px) and (max-width: 900px) {
+  .MuiTableCell-root {
+    font-size: 0.8125rem !important;
+    padding: 10px 14px !important;
+  }
+  
+  .MuiCardContent-root {
+    padding: 16px !important;
+  }
+  
+  .MuiButton-root {
+    font-size: 0.8125rem !important;
+  }
+  
+  .stats-card .MuiTypography-h4 {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* تحسينات للشاشات الكبيرة */
+@media (min-width: 1200px) {
+  .MuiContainer-root {
+    max-width: 1400px !important;
+  }
+}
+
+/* منع التمرير الأفقي */
+body {
+  overflow-x: hidden;
+}
+
+/* تحسين عرض الصور في البطاقات */
+.MuiCardMedia-img {
+  object-fit: cover;
+}
+
+/* تحسين عرض القوائم المنسدلة */
+.MuiMenu-paper {
+  max-height: 300px;
+}
+
+/* تحسين عرض الأيقونات */
+.MuiListItemIcon-root {
+  min-width: 36px !important;
+}

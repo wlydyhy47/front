@@ -9,8 +9,9 @@ import {
   Box,
   Typography,
   useTheme,
-  Avatar,
   useMediaQuery,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Dashboard,
@@ -26,14 +27,14 @@ import {
   Settings,
   Security,
   Map,
-  Chat
+  Menu as MenuIcon,
+  Close,
 } from '@mui/icons-material';
 
 const menuItems = [
   { path: '/dashboard', label: 'لوحة التحكم', icon: Dashboard },
   { path: '/users', label: 'المستخدمين', icon: People },
   { path: '/vendors', label: 'التجار', icon: People },
-  { path: '/', label: 'المحدثات', icon: Chat },
   { path: '/stores', label: 'المتاجر', icon: Storefront },
   { path: '/products', label: 'المنتجات', icon: Restaurant },
   { path: '/orders', label: 'الطلبات', icon: ShoppingBag },
@@ -46,10 +47,17 @@ const menuItems = [
   { path: '/system', label: 'النظام', icon: Settings },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
+  // حساب العرض المناسب
+  const logoWidth = isMobile ? 70 : isTablet ? 180 : 220;
+  const logoHeight = isMobile ? 70 : isTablet ? 100 : 120;
+  const titleFontSize = isMobile ? '0.875rem' : isTablet ? '1rem' : '1.25rem';
+  const menuFontSize = isMobile ? '0.75rem' : isTablet ? '0.875rem' : '1rem';
 
   return (
     <Box
@@ -60,42 +68,63 @@ export default function Sidebar() {
         position: 'relative',
       }}
     >
-      {/* ✅ الجزء العلوي الثابت */}
+      {/* زر إغلاق القائمة للهواتف */}
+      {isMobile && onClose && (
+        <IconButton
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 1,
+            backgroundColor: theme.palette.action.hover,
+            '&:hover': {
+              backgroundColor: theme.palette.action.selected,
+            },
+          }}
+          size="small"
+        >
+          <Close fontSize="small" />
+        </IconButton>
+      )}
+      
+      {/* الجزء العلوي - الشعار */}
       <Box
         sx={{
-          p: 0,
+          p: { xs: 1, sm: 2 },
+          pt: { xs: 4, sm: 2 },
+          textAlign: 'center',
           borderBottom: `1px solid ${theme.palette.divider}`,
           backgroundColor: theme.palette.background.paper,
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
           transition: 'all 0.3s ease',
         }}
       >
-        <Box sx={{ textAlign: 'center' }}>
-          <Box
-            sx={{
-              width: isMobile ? 70 : 250,
-              height: isMobile ? 70 : 125,
-              mb: 0,
-              mx: 'auto',
-              cursor: 'pointer',
-              overflow: 'hidden',
-              transition: 'transform 0.3s ease',
-              '&:hover': {
-                transform: 'scale(1.05)',
-              },
-              backgroundImage: 'url(/logo.png)',
-              backgroundSize: 'contain',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-            }}
-          />
+        <Box
+          sx={{
+            width: logoWidth,
+            height: logoHeight,
+            mx: 'auto',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            transition: 'transform 0.3s ease',
+            backgroundImage: 'url(/logo.png)',
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            '&:hover': {
+              transform: 'scale(1.05)',
+            },
+          }}
+          onClick={() => window.location.href = '/'}
+        />
+        {!isMobile && (
           <Typography
-            variant={isMobile ? "subtitle1" : "h6"}
+            variant="h6"
             fontWeight="bold"
             color="primary"
             sx={{
+              fontSize: titleFontSize,
+              mt: 1,
               transition: 'all 0.3s ease',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -104,66 +133,79 @@ export default function Sidebar() {
           >
             Food Delivery Admin
           </Typography>
-        </Box>
+        )}
       </Box>
 
-      {/* ✅ الجزء القابل للتمرير - القائمة */}
+      {/* الجزء القابل للتمرير - القائمة */}
       <Box
         sx={{
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
           '&::-webkit-scrollbar': {
-            width: '6px',
+            width: '4px',
           },
           '&::-webkit-scrollbar-track': {
             backgroundColor: theme.palette.grey[200],
-            borderRadius: '3px',
+            borderRadius: '2px',
           },
           '&::-webkit-scrollbar-thumb': {
             backgroundColor: theme.palette.primary.main,
-            borderRadius: '3px',
+            borderRadius: '2px',
             '&:hover': {
               backgroundColor: theme.palette.primary.dark,
             },
           },
         }}
       >
-        <List sx={{ mt: 1, px: 2 }}>
+        <List sx={{ px: { xs: 1, sm: 2 }, py: 1 }}>
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path ||
               location.pathname.startsWith(`${item.path}/`);
 
             return (
-              <ListItem key={item.path} disablePadding>
+              <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
                 <ListItemButton
                   component={NavLink}
                   to={item.path}
+                  onClick={isMobile ? onClose : undefined}
                   selected={isActive}
                   sx={{
-                    borderRadius: 1,
-                    mb: 0.5,
+                    borderRadius: 1.5,
+                    py: { xs: 0.75, sm: 1 },
                     transition: 'all 0.2s ease',
                     '&.active': {
-                      backgroundColor: theme.palette.primary.main + '20',
+                      backgroundColor: theme.palette.primary.main + '15',
                       color: theme.palette.primary.main,
                       '& .MuiListItemIcon-root': {
                         color: theme.palette.primary.main,
                       },
                     },
                     '&:hover': {
-                      transform: 'translateX(4px)',
+                      transform: isMobile ? 'none' : 'translateX(4px)',
                       backgroundColor: theme.palette.action.hover,
                     },
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40, mr: 1 }}>
-                    <item.icon />
+                  <ListItemIcon 
+                    sx={{ 
+                      minWidth: { xs: 36, sm: 40 },
+                      mr: { xs: 0.5, sm: 1 },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <item.icon fontSize={isMobile ? "small" : "medium"} />
                   </ListItemIcon>
                   <ListItemText
                     primary={item.label}
                     primaryTypographyProps={{
-                      fontSize: isMobile ? '0.875rem' : '1rem',
+                      fontSize: menuFontSize,
+                      fontWeight: isActive ? 600 : 400,
+                      sx: {
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }
                     }}
                   />
                 </ListItemButton>
@@ -172,34 +214,56 @@ export default function Sidebar() {
           })}
         </List>
 
-        <Divider sx={{ my: 2, mx: 2 }} />
+        <Divider sx={{ my: 1, mx: 2 }} />
 
-        <List sx={{ px: 2, pb: 2 }}>
+        <List sx={{ px: { xs: 1, sm: 2 }, pb: 2 }}>
           <ListItem disablePadding>
             <ListItemButton
               component={NavLink}
               to="/system"
+              onClick={isMobile ? onClose : undefined}
               sx={{
-                borderRadius: 1,
+                borderRadius: 1.5,
+                py: { xs: 0.75, sm: 1 },
                 transition: 'all 0.2s ease',
+                '&.active': {
+                  backgroundColor: theme.palette.primary.main + '15',
+                  color: theme.palette.primary.main,
+                },
                 '&:hover': {
-                  transform: 'translateX(4px)',
+                  transform: isMobile ? 'none' : 'translateX(4px)',
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40, mr: 1 }}>
-                <Security />
+              <ListItemIcon sx={{ minWidth: { xs: 36, sm: 40 } }}>
+                <Security fontSize={isMobile ? "small" : "medium"} />
               </ListItemIcon>
               <ListItemText
-                primary="Security & Settings"
+                primary="الأمان والإعدادات"
                 primaryTypographyProps={{
-                  fontSize: isMobile ? '0.875rem' : '1rem',
+                  fontSize: menuFontSize,
                 }}
               />
             </ListItemButton>
           </ListItem>
         </List>
       </Box>
+
+      {/* نسخة مبسطة من التذييل للهواتف */}
+      {isMobile && (
+        <Box
+          sx={{
+            p: 1,
+            textAlign: 'center',
+            borderTop: `1px solid ${theme.palette.divider}`,
+            backgroundColor: theme.palette.background.paper,
+          }}
+        >
+          <Typography variant="caption" color="textSecondary">
+            v1.0.0
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

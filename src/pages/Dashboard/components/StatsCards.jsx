@@ -1,41 +1,64 @@
-import { Grid, Card, CardContent, Typography, Box } from '@mui/material';
+import { Grid, Card, CardContent, Typography, Box, useTheme, useMediaQuery } from '@mui/material';
 import { PeopleAlt, Storefront, ShoppingBag, AttachMoney, Restaurant, LocalShipping, TrendingUp, Assessment } from '@mui/icons-material';
 
-const StatCard = ({ title, value, icon: Icon, color, subtext }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent sx={{ textAlign: 'center' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Box sx={{ textAlign: 'right' }}>
-          <Typography color="textSecondary" variant="body2">
-            {title}
-          </Typography>
-          <Typography variant="h4" sx={{ mt: 1, fontWeight: 'bold' }}>
-            {typeof value === 'number' ? value.toLocaleString() : value}
-          </Typography>
-          {subtext && (
-            <Typography variant="caption" color="textSecondary">
-              {subtext}
+const StatCard = ({ title, value, icon: Icon, color, subtext }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  return (
+    <Card sx={{ height: '100%' }}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography 
+              color="textSecondary" 
+              variant={isMobile ? "caption" : "body2"}
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+            >
+              {title}
             </Typography>
-          )}
+            <Typography 
+              variant={isMobile ? "h5" : "h4"} 
+              sx={{ 
+                mt: 1, 
+                fontWeight: 'bold',
+                fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2rem' }
+              }}
+            >
+              {typeof value === 'number' ? value.toLocaleString() : value}
+            </Typography>
+            {subtext && (
+              <Typography 
+                variant="caption" 
+                color="textSecondary"
+                sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+              >
+                {subtext}
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              backgroundColor: `${color}20`,
+              borderRadius: 2,
+              p: { xs: 1, sm: 1.5 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon sx={{ color, fontSize: { xs: 28, sm: 32 } }} />
+          </Box>
         </Box>
-        <Box
-          sx={{
-            backgroundColor: `${color}20`,
-            borderRadius: 2,
-            p: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Icon sx={{ color, fontSize: 32 }} />
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
+      </CardContent>
+    </Card>
+  );
+};
 
 export default function StatsCards({ stats = {} }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const cards = [
     { title: 'إجمالي المستخدمين', value: stats.totalUsers || 0, icon: PeopleAlt, color: '#2196f3', subtext: `+${stats.newUsersThisMonth || 0} هذا الشهر` },
     { title: 'المتاجر النشطة', value: stats.activeStores || 0, icon: Storefront, color: '#4caf50', subtext: `من أصل ${stats.totalStores || 0} إجمالي` },
@@ -48,9 +71,9 @@ export default function StatsCards({ stats = {} }) {
   ];
   
   return (
-    <Grid container spacing={3}>
+    <Grid container spacing={isMobile ? 1.5 : 3}>
       {cards.map((card, index) => (
-        <Grid item xs={12} sm={6} md={3} key={index}>
+        <Grid item xs={6} sm={6} md={3} key={index}>
           <StatCard {...card} />
         </Grid>
       ))}

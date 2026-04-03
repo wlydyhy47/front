@@ -10,78 +10,67 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Grid,
   Card,
   CardContent,
-  CardMedia,
-  Grid,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Avatar,
+  Rating,
   Alert,
   Snackbar,
-  Rating,
 } from '@mui/material';
 import {
   Edit,
   Delete,
   Visibility,
   Verified,
-  VerifiedUser,
   Storefront,
   Refresh,
   Add,
+  ToggleOn,
+  ToggleOff,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { storesService } from '../../api';
+import ResponsiveTable from '../../components/Common/ResponsiveTable';
+import ResponsiveStatsCards from '../../components/Common/ResponsiveStatsCards';
+import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
+import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
+import { useResponsive } from '../../hooks/useResponsive';
 import StoreForm from './components/StoreForm';
 import { formatDate } from '../../utils/formatters';
 
 export default function Stores() {
+  const { isMobile, fontSize, spacing } = useResponsive();
   const queryClient = useQueryClient();
+  
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [filters, setFilters] = useState({
+    search: '',
+    category: 'all',
+    status: 'all',
+  });
   const [selectedStore, setSelectedStore] = useState(null);
   const [openForm, setOpenForm] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
+
   // جلب المتاجر
-const { data, isLoading, refetch } = useQuery(
-  ['stores', page, pageSize, search, categoryFilter, statusFilter],
-  () => storesService.getStores({
-    page: page + 1,
-    limit: pageSize,
-    search: search || undefined,
-    category: categoryFilter !== 'all' ? categoryFilter : undefined,
-    isOpen: statusFilter !== 'all' ? statusFilter === 'open' : undefined,
-  }),
-  {
-    onSuccess: (response) => {
-      console.log('✅ Stores data received:', response);
-      // ✅ البيانات تأتي في response.data مباشرة
-      // response.data هي مصفوفة المتاجر
-    },
-    onError: (error) => {
-      console.error('❌ Error fetching stores:', error);
-      setSnackbar({
-        open: true,
-        message: 'فشل تحميل المتاجر',
-        severity: 'error',
-      });
-    }
-  }
-);
+  const { data, isLoading, refetch, isFetching } = useQuery(
+    ['stores', page, pageSize, filters],
+    () => storesService.getStores({
+      page: page + 1,
+      limit: pageSize,
+      search: filters.search || undefined,
+      category: filters.category !== 'all' ? filters.category : undefined,
+      isOpen: filters.status !== 'all' ? filters.status === 'open' : undefined,
+    })
+  );
 
-
-  // استخراج البيانات
   const stores = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
+
   // حذف متجر
   const deleteMutation = useMutation(
     (id) => storesService.deleteStore(id),
@@ -91,16 +80,9 @@ const { data, isLoading, refetch } = useQuery(
         setOpenDeleteDialog(false);
         setSnackbar({ open: true, message: 'تم حذف المتجر بنجاح', severity: 'success' });
       },
-      onError: (error) => {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || 'فشل حذف المتجر',
-          severity: 'error',
-        });
-      },
     }
   );
-  
+
   // توثيق متجر
   const verifyMutation = useMutation(
     (id) => storesService.verifyStore(id),
@@ -111,7 +93,7 @@ const { data, isLoading, refetch } = useQuery(
       },
     }
   );
-  
+
   // تغيير حالة المتجر
   const toggleStatusMutation = useMutation(
     (id) => storesService.toggleStoreStatus(id),
@@ -122,19 +104,23 @@ const { data, isLoading, refetch } = useQuery(
       },
     }
   );
-  
+
+  const statsCards = [
+    { title: 'إجمالي المتاجر', value: stats.total || totalCount, icon: Storefront, color: '#2196f3' },
+    { title: 'متاجر نشطة', value: stats.active || stores.filter(s => s.isOpen).length, icon: ToggleOn, color: '#4caf50' },
+    { title: 'متاجر موثقة', value: stats.verified || stores.filter(s => s.isVerified).length, icon: Verified, color: '#ff9800' },
+    { title: 'متوسط التقييم', value: stats.avgRating || '4.5', icon: Rating, color: '#9c27b0' },
+  ];
+
   const columns = [
     {
       field: 'logo',
       headerName: 'الشعار',
       width: 80,
       renderCell: (params) => (
-        <Box
-          component="img"
-          src={params.value || '/placeholder-store.jpg'}
-          alt={params.row.name}
-          sx={{ width: 40, height: 40, borderRadius: 1, objectFit: 'cover' }}
-        />
+        <Avatar src={params.value || '/placeholder-store.jpg'} sx={{ width: 40, height: 40, borderRadius: 1 }}>
+          {params.row.name?.charAt(0)}
+        </Avatar>
       ),
     },
     { field: 'name', headerName: 'اسم المتجر', width: 180 },
@@ -146,10 +132,7 @@ const { data, isLoading, refetch } = useQuery(
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
-        <Box display="flex" alignItems="center">
-          <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
-          <Typography variant="caption">({params.value || 0})</Typography>
-        </Box>
+        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
       ),
     },
     {
@@ -169,20 +152,14 @@ const { data, isLoading, refetch } = useQuery(
       headerName: 'موثق',
       width: 80,
       renderCell: (params) => (
-        params.value ? <VerifiedUser color="primary" /> : <Chip label="غير موثق" size="small" />
+        params.value ? <Verified color="primary" /> : <Chip label="غير موثق" size="small" />
       ),
-    },
-    {
-      field: 'createdAt',
-      headerName: 'تاريخ التسجيل',
-      width: 150,
-      valueFormatter: (params) => formatDate(params.value),
     },
     {
       field: 'actions',
       headerName: 'الإجراءات',
       width: 180,
-      sortable: false,
+      hideOnDesktop: false,
       renderCell: (params) => (
         <Box>
           <Tooltip title="عرض التفاصيل">
@@ -210,18 +187,14 @@ const { data, isLoading, refetch } = useQuery(
           )}
           <Tooltip title={params.row.isOpen ? 'إغلاق' : 'فتح'}>
             <IconButton size="small" onClick={() => toggleStatusMutation.mutate(params.row._id)}>
-              <Storefront fontSize="small" />
+              {params.row.isOpen ? <ToggleOff fontSize="small" color="error" /> : <ToggleOn fontSize="small" color="success" />}
             </IconButton>
           </Tooltip>
           <Tooltip title="حذف">
-            <IconButton
-              size="small"
-              onClick={() => {
-                setSelectedStore(params.row);
-                setOpenDeleteDialog(true);
-              }}
-              color="error"
-            >
+            <IconButton size="small" onClick={() => {
+              setSelectedStore(params.row);
+              setOpenDeleteDialog(true);
+            }} color="error">
               <Delete fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -229,7 +202,7 @@ const { data, isLoading, refetch } = useQuery(
       ),
     },
   ];
-  
+
   const categories = [
     { value: 'all', label: 'الكل' },
     { value: 'restaurant', label: 'مطعم' },
@@ -238,18 +211,41 @@ const { data, isLoading, refetch } = useQuery(
     { value: 'bakery', label: 'مخبز' },
     { value: 'grocery', label: 'بقالة' },
     { value: 'pharmacy', label: 'صيدلية' },
-    { value: 'store', label: 'متجر' },
   ];
-  
+
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      category: 'all',
+      status: 'all',
+    });
+  };
+
   return (
-    <Box dir="rtl" sx={{ p: 3 }}>
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" fontWeight="bold">
-            إدارة المتاجر
+    <Box sx={{ p: spacing.page }}>
+      <Typography 
+        variant="h5" 
+        fontWeight="bold" 
+        sx={{ mb: spacing.section, fontSize: fontSize.h2 }}
+      >
+        إدارة المتاجر
+      </Typography>
+
+      <ResponsiveStatsCards 
+        cards={statsCards} 
+        columnsDesktop={4}
+        columnsTablet={2}
+        columnsMobile={2}
+        spacing={spacing.section}
+      />
+
+      <Paper sx={{ p: spacing.card }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
+            قائمة المتاجر
           </Typography>
-          <Box display="flex" gap={2}>
-            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small">
+          <Box display="flex" gap={1} flexWrap="wrap">
+            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
               تحديث
             </Button>
             <Button
@@ -259,32 +255,32 @@ const { data, isLoading, refetch } = useQuery(
                 setSelectedStore(null);
                 setOpenForm(true);
               }}
+              size="small"
             >
-              متجر جديد
+              {isMobile ? 'جديد' : 'متجر جديد'}
             </Button>
           </Box>
         </Box>
-        
-        {/* فلاتر البحث */}
-        <Grid container spacing={2} mb={3}>
-          <Grid item xs={12} md={4}>
+
+        <ResponsiveFilters onReset={resetFilters}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               label="بحث"
               size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               placeholder="اسم المتجر، البريد، رقم الهاتف..."
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               select
               label="التصنيف"
               size="small"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={filters.category}
+              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
             >
               {categories.map((cat) => (
                 <MenuItem key={cat.value} value={cat.value}>
@@ -293,154 +289,152 @@ const { data, isLoading, refetch } = useQuery(
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               select
               label="الحالة"
               size="small"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
               <MenuItem value="all">الكل</MenuItem>
               <MenuItem value="open">مفتوح</MenuItem>
               <MenuItem value="closed">مغلق</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                setSearch('');
-                setCategoryFilter('all');
-                setStatusFilter('all');
-              }}
-            >
-              مسح
-            </Button>
-          </Grid>
-        </Grid>
-        
-        {/* جدول المتاجر */}
-        <DataGrid
-          rows={stores}
+        </ResponsiveFilters>
+
+        <ResponsiveTable
+          data={stores}
           columns={columns}
           loading={isLoading}
-          rowCount={totalCount}
-          paginationMode="server"
-          page={page}
-          pageSize={pageSize}
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(newSize) => setPageSize(newSize)}
-          rowsPerPageOptions={[10, 20, 50, 100]}
-          autoHeight
-          disableSelectionOnClick
-          getRowId={(row) => row._id}
+          onRowClick={(store) => {
+            setSelectedStore(store);
+            setOpenDetails(true);
+          }}
+          emptyMessage="لا توجد متاجر"
+          renderMobileCard={(store) => (
+            <Paper key={store._id} sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => {
+              setSelectedStore(store);
+              setOpenDetails(true);
+            }}>
+              <Box display="flex" gap={2}>
+                <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
+                  {store.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {store.name}
+                    </Typography>
+                    <Chip
+                      label={store.isOpen ? 'مفتوح' : 'مغلق'}
+                      size="small"
+                      color={store.isOpen ? 'success' : 'error'}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {store.phone}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {store.category}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Rating value={store.rating || 0} readOnly size="small" />
+                    {store.isVerified && <Verified fontSize="small" color="primary" />}
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+          )}
         />
       </Paper>
-      
+
       {/* نموذج إضافة/تعديل متجر */}
-      <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{selectedStore ? 'تعديل متجر' : 'إضافة متجر جديد'}</DialogTitle>
-        <DialogContent>
-          <StoreForm
-            store={selectedStore}
-            onSuccess={() => {
-              setOpenForm(false);
-              queryClient.invalidateQueries('stores');
-              setSnackbar({
-                open: true,
-                message: selectedStore ? 'تم تحديث المتجر' : 'تم إضافة المتجر',
-                severity: 'success',
-              });
-            }}
-            onCancel={() => setOpenForm(false)}
-          />
-        </DialogContent>
-      </Dialog>
-      
-      {/* تفاصيل المتجر */}
-      <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
-        <DialogTitle>تفاصيل المتجر</DialogTitle>
-        <DialogContent>
-          {selectedStore && (
-            <Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4} textAlign="center">
-                  <Box
-                    component="img"
-                    src={selectedStore.logo || '/placeholder-store.jpg'}
-                    alt={selectedStore.name}
-                    sx={{ width: 120, height: 120, borderRadius: 2, objectFit: 'cover', mx: 'auto' }}
-                  />
-                  <Typography variant="h6" sx={{ mt: 2 }}>{selectedStore.name}</Typography>
-                  <Box display="flex" justifyContent="center" mt={1}>
-                    <Rating value={selectedStore.rating || 0} readOnly precision={0.5} />
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={8}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>الوصف:</strong> {selectedStore.description || '-'}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>التصنيف:</strong> {selectedStore.category}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>رقم الهاتف:</strong> {selectedStore.phone}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>البريد الإلكتروني:</strong> {selectedStore.email || '-'}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>تاريخ التسجيل:</strong> {formatDate(selectedStore.createdAt)}
-                  </Typography>
-                  <Box display="flex" gap={1} mt={2}>
-                    <Chip
-                      label={selectedStore.isVerified ? 'موثق' : 'غير موثق'}
-                      color={selectedStore.isVerified ? 'primary' : 'default'}
-                    />
-                    <Chip
-                      label={selectedStore.isOpen ? 'مفتوح' : 'مغلق'}
-                      color={selectedStore.isOpen ? 'success' : 'error'}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetails(false)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* حوار تأكيد الحذف */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-        <DialogTitle>تأكيد الحذف</DialogTitle>
-        <DialogContent>
-          <Typography>
-            هل أنت متأكد من حذف المتجر "{selectedStore?.name}"؟
-            هذا الإجراء لا يمكن التراجع عنه وسيؤدي إلى حذف جميع المنتجات المرتبطة به.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-          <Button onClick={() => deleteMutation.mutate(selectedStore?._id)} color="error" variant="contained">
-            حذف
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* إشعارات */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      <ResponsiveDialog
+        open={openForm}
+        onClose={() => setOpenForm(false)}
+        title={selectedStore ? 'تعديل متجر' : 'إضافة متجر جديد'}
+        maxWidth="md"
       >
-        <Alert severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
+        <StoreForm
+          store={selectedStore}
+          onSuccess={() => {
+            setOpenForm(false);
+            queryClient.invalidateQueries('stores');
+            setSnackbar({ open: true, message: selectedStore ? 'تم تحديث المتجر' : 'تم إضافة المتجر', severity: 'success' });
+          }}
+          onCancel={() => setOpenForm(false)}
+        />
+      </ResponsiveDialog>
+
+      {/* تفاصيل المتجر */}
+      <ResponsiveDialog
+        open={openDetails}
+        onClose={() => setOpenDetails(false)}
+        title="تفاصيل المتجر"
+        maxWidth="md"
+        actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
+      >
+        {selectedStore && (
+          <Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4} textAlign="center">
+                <Avatar src={selectedStore.logo || '/placeholder-store.jpg'} sx={{ width: 100, height: 100, mx: 'auto' }}>
+                  {selectedStore.name?.charAt(0)}
+                </Avatar>
+                <Typography variant="h6" sx={{ mt: 2 }}>{selectedStore.name}</Typography>
+                <Rating value={selectedStore.rating || 0} readOnly precision={0.5} />
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>الوصف:</strong> {selectedStore.description || '-'}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>التصنيف:</strong> {selectedStore.category}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>رقم الهاتف:</strong> {selectedStore.phone}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>البريد الإلكتروني:</strong> {selectedStore.email || '-'}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>تاريخ التسجيل:</strong> {formatDate(selectedStore.createdAt)}
+                </Typography>
+                <Box display="flex" gap={1} mt={2}>
+                  <Chip label={selectedStore.isVerified ? 'موثق' : 'غير موثق'} color={selectedStore.isVerified ? 'primary' : 'default'} />
+                  <Chip label={selectedStore.isOpen ? 'مفتوح' : 'مغلق'} color={selectedStore.isOpen ? 'success' : 'error'} />
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+      </ResponsiveDialog>
+
+      {/* حوار تأكيد الحذف */}
+      <ResponsiveDialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        title="تأكيد الحذف"
+        maxWidth="xs"
+        actions={
+          <>
+            <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
+            <Button onClick={() => deleteMutation.mutate(selectedStore?._id)} color="error" variant="contained">
+              حذف
+            </Button>
+          </>
+        }
+      >
+        <Typography>
+          هل أنت متأكد من حذف المتجر "{selectedStore?.name}"؟
+        </Typography>
+      </ResponsiveDialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );

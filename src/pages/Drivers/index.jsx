@@ -14,73 +14,62 @@ import {
   Card,
   CardContent,
   Avatar,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Rating,
   Alert,
   Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  LinearProgress,
 } from '@mui/material';
 import {
   Edit,
   Delete,
   Visibility,
-  Refresh,
-  Download,
-  LocationOn,
   Verified,
-  VerifiedUser,
   LocalShipping,
+  Refresh,
+  LocationOn,
+  Block,
+  CheckCircle,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { driversService } from '../../api';
+import ResponsiveTable from '../../components/Common/ResponsiveTable';
+import ResponsiveStatsCards from '../../components/Common/ResponsiveStatsCards';
+import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
+import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
+import { useResponsive } from '../../hooks/useResponsive';
 import DriverDetails from './components/DriverDetails';
 import DriverLocation from './components/DriverLocation';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 
 export default function Drivers() {
+  const { isMobile, fontSize, spacing } = useResponsive();
   const queryClient = useQueryClient();
+  
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [filters, setFilters] = useState({
+    search: '',
+    status: 'all',
+    availability: 'all',
+  });
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [openDetails, setOpenDetails] = useState(false);
   const [openLocation, setOpenLocation] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
-  // جلب المندوبين
-  const { data, isLoading, refetch } = useQuery(
-    ['drivers', page, pageSize, search, statusFilter, availabilityFilter],
+
+  const { data, isLoading, refetch, isFetching } = useQuery(
+    ['drivers', page, pageSize, filters],
     () => driversService.getDrivers({
       page: page + 1,
       limit: pageSize,
-      search: search || undefined,
-      isActive: statusFilter !== 'all' ? statusFilter === 'active' : undefined,
-      isOnline: availabilityFilter !== 'all' ? availabilityFilter === 'online' : undefined,
-    }),
-    {
-      onSuccess: (response) => {
-        console.log('✅ Drivers data received:', response);
-      }
-    }
+      search: filters.search || undefined,
+      isActive: filters.status !== 'all' ? filters.status === 'active' : undefined,
+      isOnline: filters.availability !== 'all' ? filters.availability === 'online' : undefined,
+    })
   );
-  
-  // استخراج البيانات
+
   const drivers = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
-  
-  // تغيير حالة المندوب
+
   const updateStatusMutation = useMutation(
     ({ id, isActive }) => driversService.updateDriverStatus(id, { isActive }),
     {
@@ -90,8 +79,7 @@ export default function Drivers() {
       },
     }
   );
-  
-  // توثيق مندوب
+
   const verifyMutation = useMutation(
     (id) => driversService.verifyDriver(id),
     {
@@ -101,12 +89,18 @@ export default function Drivers() {
       },
     }
   );
-  
-  // إحصائيات
+
   const activeDrivers = drivers.filter(d => d.isActive).length;
   const onlineDrivers = drivers.filter(d => d.isOnline).length;
   const verifiedDrivers = drivers.filter(d => d.isVerified).length;
-  
+
+  const statsCards = [
+    { title: 'إجمالي المندوبين', value: totalCount, icon: LocalShipping, color: '#2196f3' },
+    { title: 'مندوبين نشطين', value: activeDrivers, icon: CheckCircle, color: '#4caf50' },
+    { title: 'متصلون الآن', value: onlineDrivers, icon: LocationOn, color: '#ff9800' },
+    { title: 'مندوبين موثقين', value: verifiedDrivers, icon: Verified, color: '#9c27b0' },
+  ];
+
   const columns = [
     {
       field: 'avatar',
@@ -126,28 +120,15 @@ export default function Drivers() {
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
-        <Box display="flex" alignItems="center" gap={1}>
-          <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
-          <Typography variant="caption">({params.value || 0})</Typography>
-        </Box>
+        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
       ),
-    },
-    {
-      field: 'totalDeliveries',
-      headerName: 'عدد التوصيلات',
-      width: 120,
-      valueGetter: (params) => params.row.stats?.totalDeliveries || 0,
     },
     {
       field: 'isOnline',
       headerName: 'الحالة',
       width: 100,
       renderCell: (params) => (
-        <Chip
-          label={params.value ? 'متصل' : 'غير متصل'}
-          size="small"
-          color={params.value ? 'success' : 'default'}
-        />
+        <Chip label={params.value ? 'متصل' : 'غير متصل'} size="small" color={params.value ? 'success' : 'default'} />
       ),
     },
     {
@@ -155,26 +136,14 @@ export default function Drivers() {
       headerName: 'نشط',
       width: 80,
       renderCell: (params) => (
-        <Chip
-          label={params.value ? 'نشط' : 'غير نشط'}
-          size="small"
-          color={params.value ? 'success' : 'error'}
-        />
-      ),
-    },
-    {
-      field: 'isVerified',
-      headerName: 'موثق',
-      width: 80,
-      renderCell: (params) => (
-        params.value ? <VerifiedUser color="primary" /> : <Chip label="غير موثق" size="small" />
+        <Chip label={params.value ? 'نشط' : 'غير نشط'} size="small" color={params.value ? 'success' : 'error'} />
       ),
     },
     {
       field: 'actions',
       headerName: 'الإجراءات',
       width: 180,
-      sortable: false,
+      hideOnDesktop: false,
       renderCell: (params) => (
         <Box>
           <Tooltip title="عرض التفاصيل">
@@ -201,192 +170,131 @@ export default function Drivers() {
             </Tooltip>
           )}
           <Tooltip title={params.row.isActive ? 'تعطيل' : 'تفعيل'}>
-            <IconButton
-              size="small"
-              onClick={() => updateStatusMutation.mutate({ id: params.row._id, isActive: !params.row.isActive })}
-              color={params.row.isActive ? 'error' : 'success'}
-            >
-              {params.row.isActive ? <Delete fontSize="small" /> : <Verified fontSize="small" />}
+            <IconButton size="small" onClick={() => updateStatusMutation.mutate({ id: params.row._id, isActive: !params.row.isActive })}>
+              {params.row.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
             </IconButton>
           </Tooltip>
         </Box>
       ),
     },
   ];
-  
+
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      status: 'all',
+      availability: 'all',
+    });
+  };
+
   return (
-    <Box dir="rtl" sx={{ p: 3 }}>
-      {/* بطاقات الإحصائيات */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card className="stats-card">
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="primary">
-                {totalCount}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                إجمالي المندوبين
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card className="stats-card">
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="success.main">
-                {onlineDrivers}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                متصلون الآن
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card className="stats-card">
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="warning.main">
-                {activeDrivers}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                مندوبين نشطين
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card className="stats-card">
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="info.main">
-                {verifiedDrivers}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                مندوبين موثقين
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-      
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" fontWeight="bold">
-            إدارة المندوبين
+    <Box sx={{ p: spacing.page }}>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
+        إدارة المندوبين
+      </Typography>
+
+      <ResponsiveStatsCards cards={statsCards} columnsDesktop={4} columnsTablet={2} columnsMobile={2} spacing={spacing.section} />
+
+      <Paper sx={{ p: spacing.card }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
+            قائمة المندوبين
           </Typography>
-          <Box display="flex" gap={2}>
-            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small">
-              تحديث
-            </Button>
-            <Button variant="outlined" startIcon={<Download />} size="small">
-              تصدير
-            </Button>
-          </Box>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
+            تحديث
+          </Button>
         </Box>
-        
-        {/* فلاتر البحث */}
-        <Grid container spacing={2} mb={3}>
-          <Grid item xs={12} md={5}>
+
+        <ResponsiveFilters onReset={resetFilters}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               label="بحث"
               size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               placeholder="الاسم، رقم الهاتف..."
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               select
               label="حالة الحساب"
               size="small"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
               <MenuItem value="all">الكل</MenuItem>
               <MenuItem value="active">نشط</MenuItem>
               <MenuItem value="inactive">غير نشط</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               select
               label="حالة الاتصال"
               size="small"
-              value={availabilityFilter}
-              onChange={(e) => setAvailabilityFilter(e.target.value)}
+              value={filters.availability}
+              onChange={(e) => setFilters({ ...filters, availability: e.target.value })}
             >
               <MenuItem value="all">الكل</MenuItem>
               <MenuItem value="online">متصل</MenuItem>
               <MenuItem value="offline">غير متصل</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={1}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                setSearch('');
-                setStatusFilter('all');
-                setAvailabilityFilter('all');
-              }}
-            >
-              مسح
-            </Button>
-          </Grid>
-        </Grid>
-        
-        {/* جدول المندوبين */}
-        <DataGrid
-          rows={drivers}
+        </ResponsiveFilters>
+
+        <ResponsiveTable
+          data={drivers}
           columns={columns}
           loading={isLoading}
-          rowCount={totalCount}
-          paginationMode="server"
-          page={page}
-          pageSize={pageSize}
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(newSize) => setPageSize(newSize)}
-          rowsPerPageOptions={[10, 20, 50, 100]}
-          autoHeight
-          disableSelectionOnClick
-          getRowId={(row) => row._id}
+          onRowClick={(driver) => {
+            setSelectedDriver(driver);
+            setOpenDetails(true);
+          }}
+          emptyMessage="لا يوجد مندوبين"
+          renderMobileCard={(driver) => (
+            <Paper key={driver._id} sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => {
+              setSelectedDriver(driver);
+              setOpenDetails(true);
+            }}>
+              <Box display="flex" gap={2}>
+                <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
+                  {driver.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {driver.name}
+                    </Typography>
+                    <Chip label={driver.isOnline ? 'متصل' : 'غير متصل'} size="small" color={driver.isOnline ? 'success' : 'default'} />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {driver.phone}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Rating value={driver.rating || 0} readOnly size="small" />
+                    {driver.isVerified && <Verified fontSize="small" color="primary" />}
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+          )}
         />
       </Paper>
-      
-      {/* تفاصيل المندوب */}
-      <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
-        <DialogTitle>تفاصيل المندوب</DialogTitle>
-        <DialogContent>
-          {selectedDriver && <DriverDetails driver={selectedDriver} />}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetails(false)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* موقع المندوب */}
-      <Dialog open={openLocation} onClose={() => setOpenLocation(false)} maxWidth="md" fullWidth>
-        <DialogTitle>موقع المندوب - {selectedDriver?.name}</DialogTitle>
-        <DialogContent>
-          {selectedDriver && <DriverLocation driverId={selectedDriver._id} />}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenLocation(false)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* إشعارات */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
+
+      <ResponsiveDialog open={openDetails} onClose={() => setOpenDetails(false)} title="تفاصيل المندوب" maxWidth="md" actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}>
+        {selectedDriver && <DriverDetails driver={selectedDriver} />}
+      </ResponsiveDialog>
+
+      <ResponsiveDialog open={openLocation} onClose={() => setOpenLocation(false)} title={`موقع المندوب - ${selectedDriver?.name}`} maxWidth="md" actions={<Button onClick={() => setOpenLocation(false)}>إغلاق</Button>}>
+        {selectedDriver && <DriverLocation driverId={selectedDriver._id} />}
+      </ResponsiveDialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );

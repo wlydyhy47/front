@@ -13,13 +13,10 @@ import {
   Grid,
   Card,
   CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Rating,
   Alert,
   Snackbar,
+  Avatar,
 } from '@mui/material';
 import {
   Edit,
@@ -33,52 +30,55 @@ import {
   ToggleOff,
   Star,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { productsService, storesService } from '../../api';
+import ResponsiveTable from '../../components/Common/ResponsiveTable';
+import ResponsiveStatsCards from '../../components/Common/ResponsiveStatsCards';
+import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
+import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
+import { useResponsive } from '../../hooks/useResponsive';
 import ProductForm from './components/ProductForm';
 import ProductInventory from './components/ProductInventory';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 export default function Products() {
+  const { isMobile, fontSize, spacing, gridColumns } = useResponsive();
   const queryClient = useQueryClient();
+  
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [storeFilter, setStoreFilter] = useState('all');
-  const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [filters, setFilters] = useState({
+    search: '',
+    category: 'all',
+    store: 'all',
+    availability: 'all',
+  });
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [openForm, setOpenForm] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [openInventory, setOpenInventory] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
+
   // جلب المنتجات
-  const { data, isLoading, refetch } = useQuery(
-    ['products', page, pageSize, search, categoryFilter, storeFilter, availabilityFilter],
+  const { data, isLoading, refetch, isFetching } = useQuery(
+    ['products', page, pageSize, filters],
     () => productsService.getProducts({
       page: page + 1,
       limit: pageSize,
-      search: search || undefined,
-      category: categoryFilter !== 'all' ? categoryFilter : undefined,
-      store: storeFilter !== 'all' ? storeFilter : undefined,
-      isAvailable: availabilityFilter !== 'all' ? availabilityFilter === 'available' : undefined,
-    }),
-    {
-      onSuccess: (response) => {
-        console.log('✅ Products data received:', response);
-      }
-    }
+      search: filters.search || undefined,
+      category: filters.category !== 'all' ? filters.category : undefined,
+      store: filters.store !== 'all' ? filters.store : undefined,
+      isAvailable: filters.availability !== 'all' ? filters.availability === 'available' : undefined,
+    })
   );
-  
-  // استخراج البيانات
-  const products = data?.data || [];
-  const totalCount = data?.pagination?.total || 0;
-  
+
   // جلب المتاجر للفلتر
   const { data: storesData } = useQuery('stores-list', () => storesService.getStores({ limit: 100 }));
-  
+
+  const products = data?.data || [];
+  const totalCount = data?.pagination?.total || 0;
+  const stats = data?.stats || {};
+
   // حذف منتج
   const deleteMutation = useMutation(
     (id) => productsService.deleteProduct(id),
@@ -88,16 +88,9 @@ export default function Products() {
         setOpenDeleteDialog(false);
         setSnackbar({ open: true, message: 'تم حذف المنتج بنجاح', severity: 'success' });
       },
-      onError: (error) => {
-        setSnackbar({
-          open: true,
-          message: error.response?.data?.message || 'فشل حذف المنتج',
-          severity: 'error',
-        });
-      },
     }
   );
-  
+
   // تغيير حالة التوفر
   const toggleAvailabilityMutation = useMutation(
     (id) => productsService.toggleAvailability(id),
@@ -108,7 +101,7 @@ export default function Products() {
       },
     }
   );
-  
+
   // تمييز منتج
   const featureProductMutation = useMutation(
     ({ id, featured }) => productsService.featureProduct(id, { featured }),
@@ -119,43 +112,46 @@ export default function Products() {
       },
     }
   );
-  
+
+  // إحصائيات المنتجات
+  const statsCards = [
+    { title: 'إجمالي المنتجات', value: stats.total || 0, icon: Add, color: '#2196f3' },
+    { title: 'منتجات متاحة', value: stats.available || 0, icon: ToggleOn, color: '#4caf50' },
+    { title: 'مخزون منخفض', value: stats.lowStock || 0, icon: Inventory, color: '#ff9800' },
+    { title: 'منتجات مميزة', value: stats.featured || 0, icon: Star, color: '#9c27b0' },
+  ];
+
+  // أعمدة الجدول
   const columns = [
     {
       field: 'image',
       headerName: 'الصورة',
       width: 80,
       renderCell: (params) => (
-        <Box
-          component="img"
-          src={params.value || '/placeholder-product.jpg'}
-          alt={params.row.name}
-          sx={{ width: 40, height: 40, borderRadius: 1, objectFit: 'cover' }}
-        />
+        <Avatar 
+          src={params.value || '/placeholder-product.jpg'} 
+          sx={{ width: 40, height: 40, borderRadius: 1 }}
+        >
+          {params.row.name?.charAt(0)}
+        </Avatar>
       ),
     },
     { field: 'name', headerName: 'اسم المنتج', width: 180 },
-    {
-      field: 'store',
-      headerName: 'المتجر',
+    { 
+      field: 'store', 
+      headerName: 'المتجر', 
       width: 150,
-      valueGetter: (params) => params.row.store?.name || params.row.storeId,
+      valueGetter: (row) => row.store?.name || row.storeId,
     },
-    {
-      field: 'price',
-      headerName: 'السعر',
+    { 
+      field: 'price', 
+      headerName: 'السعر', 
       width: 120,
-      valueFormatter: (params) => formatCurrency(params.value),
+      valueFormatter: (value) => formatCurrency(value),
     },
-    {
-      field: 'discountedPrice',
-      headerName: 'السعر بعد الخصم',
-      width: 130,
-      valueFormatter: (params) => params.value ? formatCurrency(params.value) : '-',
-    },
-    {
-      field: 'category',
-      headerName: 'التصنيف',
+    { 
+      field: 'category', 
+      headerName: 'التصنيف', 
       width: 120,
     },
     {
@@ -175,25 +171,14 @@ export default function Products() {
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
-        <Box display="flex" alignItems="center">
-          <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
-          <Typography variant="caption">({params.value || 0})</Typography>
-        </Box>
-      ),
-    },
-    {
-      field: 'featured',
-      headerName: 'مميز',
-      width: 80,
-      renderCell: (params) => (
-        params.value ? <Star color="warning" /> : null
+        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
       ),
     },
     {
       field: 'actions',
       headerName: 'الإجراءات',
       width: 200,
-      sortable: false,
+      hideOnDesktop: false,
       renderCell: (params) => (
         <Box>
           <Tooltip title="عرض التفاصيل">
@@ -246,10 +231,7 @@ export default function Products() {
       ),
     },
   ];
-  
-  // إحصائيات المنتجات
-  const { data: statsData } = useQuery('products-stats', () => productsService.getProductStats());
-  
+
   const categories = [
     { value: 'all', label: 'الكل' },
     { value: 'main', label: 'وجبات رئيسية' },
@@ -258,54 +240,43 @@ export default function Products() {
     { value: 'dessert', label: 'حلويات' },
     { value: 'salad', label: 'سلطات' },
   ];
-  
-  const stats = statsData?.data || {};
-  
+
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      category: 'all',
+      store: 'all',
+      availability: 'all',
+    });
+  };
+
   return (
-    <Box dir="rtl" sx={{ p: 3 }}>
+    <Box sx={{ p: spacing.page }}>
+      <Typography 
+        variant="h5" 
+        fontWeight="bold" 
+        sx={{ mb: spacing.section, fontSize: fontSize.h2 }}
+      >
+        إدارة المنتجات
+      </Typography>
+
       {/* بطاقات الإحصائيات */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="primary">
-              {stats.total || 0}
-            </Typography>
-            <Typography variant="body2">إجمالي المنتجات</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="success.main">
-              {stats.available || 0}
-            </Typography>
-            <Typography variant="body2">منتجات متاحة</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="warning.main">
-              {stats.lowStock || 0}
-            </Typography>
-            <Typography variant="body2">مخزون منخفض</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h4" color="secondary.main">
-              {stats.featured || 0}
-            </Typography>
-            <Typography variant="body2">منتجات مميزة</Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-      
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" fontWeight="bold">
-            إدارة المنتجات
+      <ResponsiveStatsCards 
+        cards={statsCards} 
+        columnsDesktop={4}
+        columnsTablet={2}
+        columnsMobile={2}
+        spacing={spacing.section}
+      />
+
+      <Paper sx={{ p: spacing.card }}>
+        {/* شريط العنوان والأزرار */}
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
+            قائمة المنتجات
           </Typography>
-          <Box display="flex" gap={2}>
-            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small">
+          <Box display="flex" gap={1} flexWrap="wrap">
+            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
               تحديث
             </Button>
             <Button variant="outlined" startIcon={<Download />} size="small">
@@ -318,32 +289,33 @@ export default function Products() {
                 setSelectedProduct(null);
                 setOpenForm(true);
               }}
+              size="small"
             >
-              منتج جديد
+              {isMobile ? 'جديد' : 'منتج جديد'}
             </Button>
           </Box>
         </Box>
-        
-        {/* فلاتر البحث */}
-        <Grid container spacing={2} mb={3}>
-          <Grid item xs={12} md={3}>
+
+        {/* الفلاتر */}
+        <ResponsiveFilters onReset={resetFilters}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               label="بحث"
               size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               placeholder="اسم المنتج..."
             />
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               select
               label="التصنيف"
               size="small"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={filters.category}
+              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
             >
               {categories.map((cat) => (
                 <MenuItem key={cat.value} value={cat.value}>
@@ -352,14 +324,14 @@ export default function Products() {
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               select
               label="المتجر"
               size="small"
-              value={storeFilter}
-              onChange={(e) => setStoreFilter(e.target.value)}
+              value={filters.store}
+              onChange={(e) => setFilters({ ...filters, store: e.target.value })}
             >
               <MenuItem value="all">الكل</MenuItem>
               {storesData?.data?.map((store) => (
@@ -369,179 +341,223 @@ export default function Products() {
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               select
               label="الحالة"
               size="small"
-              value={availabilityFilter}
-              onChange={(e) => setAvailabilityFilter(e.target.value)}
+              value={filters.availability}
+              onChange={(e) => setFilters({ ...filters, availability: e.target.value })}
             >
               <MenuItem value="all">الكل</MenuItem>
               <MenuItem value="available">متاح</MenuItem>
               <MenuItem value="unavailable">غير متاح</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                setSearch('');
-                setCategoryFilter('all');
-                setStoreFilter('all');
-                setAvailabilityFilter('all');
-              }}
-            >
-              مسح الفلترة
-            </Button>
-          </Grid>
-        </Grid>
-        
-        {/* جدول المنتجات */}
-        <DataGrid
-          rows={products}
+        </ResponsiveFilters>
+
+        {/* الجدول المتجاوب */}
+        <ResponsiveTable
+          data={products}
           columns={columns}
           loading={isLoading}
-          rowCount={totalCount}
-          paginationMode="server"
-          page={page}
-          pageSize={pageSize}
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(newSize) => setPageSize(newSize)}
-          rowsPerPageOptions={[10, 20, 50, 100]}
-          autoHeight
-          disableSelectionOnClick
-          getRowId={(row) => row._id}
+          onRowClick={(product) => {
+            setSelectedProduct(product);
+            setOpenDetails(true);
+          }}
+          emptyMessage="لا توجد منتجات"
+          renderMobileCard={(product) => (
+            <Paper key={product._id} sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => {
+              setSelectedProduct(product);
+              setOpenDetails(true);
+            }}>
+              <Box display="flex" gap={2}>
+                <Avatar 
+                  src={product.image || '/placeholder-product.jpg'} 
+                  sx={{ width: 50, height: 50, borderRadius: 1 }}
+                >
+                  {product.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {product.name}
+                    </Typography>
+                    <Chip
+                      label={product.isAvailable ? 'متاح' : 'غير متاح'}
+                      size="small"
+                      color={product.isAvailable ? 'success' : 'error'}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {product.store?.name || product.storeId}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {product.category}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Typography variant="body2" fontWeight="bold" color="primary">
+                      {formatCurrency(product.price)}
+                    </Typography>
+                    <Rating value={product.rating || 0} readOnly size="small" />
+                  </Box>
+                </Box>
+              </Box>
+              <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); toggleAvailabilityMutation.mutate(product._id); }}>
+                  {product.isAvailable ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
+                </IconButton>
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); featureProductMutation.mutate({ id: product._id, featured: !product.featured }); }}>
+                  <Star fontSize="small" color={product.featured ? 'warning' : 'disabled'} />
+                </IconButton>
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setOpenInventory(true); }}>
+                  <Inventory fontSize="small" />
+                </IconButton>
+              </Box>
+            </Paper>
+          )}
         />
+
+        {/* ترقيم الصفحات للهواتف */}
+        {isMobile && totalCount > pageSize && (
+          <Box display="flex" justifyContent="center" mt={2}>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 0}
+              size="small"
+            >
+              السابق
+            </Button>
+            <Typography variant="body2" sx={{ mx: 2, alignSelf: 'center' }}>
+              {page + 1} / {Math.ceil(totalCount / pageSize)}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * pageSize >= totalCount}
+              size="small"
+            >
+              التالي
+            </Button>
+          </Box>
+        )}
       </Paper>
-      
+
       {/* نموذج إضافة/تعديل منتج */}
-      <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{selectedProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}</DialogTitle>
-        <DialogContent>
-          <ProductForm
+      <ResponsiveDialog
+        open={openForm}
+        onClose={() => setOpenForm(false)}
+        title={selectedProduct ? 'تعديل منتج' : 'إضافة منتج جديد'}
+        maxWidth="md"
+      >
+        <ProductForm
+          product={selectedProduct}
+          onSuccess={() => {
+            setOpenForm(false);
+            queryClient.invalidateQueries('products');
+            setSnackbar({ open: true, message: selectedProduct ? 'تم تحديث المنتج' : 'تم إضافة المنتج', severity: 'success' });
+          }}
+          onCancel={() => setOpenForm(false)}
+        />
+      </ResponsiveDialog>
+
+      {/* تفاصيل المنتج */}
+      <ResponsiveDialog
+        open={openDetails}
+        onClose={() => setOpenDetails(false)}
+        title="تفاصيل المنتج"
+        maxWidth="md"
+        actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
+      >
+        {selectedProduct && (
+          <Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4} textAlign="center">
+                <Avatar
+                  src={selectedProduct.image || '/placeholder-product.jpg'}
+                  sx={{ width: 120, height: 120, mx: 'auto', borderRadius: 2 }}
+                >
+                  {selectedProduct.name?.charAt(0)}
+                </Avatar>
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <Typography variant="h6">{selectedProduct.name}</Typography>
+                <Typography variant="body2" color="textSecondary" paragraph>
+                  {selectedProduct.description || 'لا يوجد وصف'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>السعر:</strong> {formatCurrency(selectedProduct.price)}
+                </Typography>
+                {selectedProduct.discountedPrice && (
+                  <Typography variant="body2" color="error">
+                    <strong>بعد الخصم:</strong> {formatCurrency(selectedProduct.discountedPrice)}
+                  </Typography>
+                )}
+                <Typography variant="body2">
+                  <strong>التصنيف:</strong> {selectedProduct.category}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>وقت التحضير:</strong> {selectedProduct.preparationTime || 15} دقيقة
+                </Typography>
+                <Box display="flex" alignItems="center" mt={1}>
+                  <strong>التقييم:</strong>
+                  <Rating value={selectedProduct.rating || 0} readOnly size="small" sx={{ ml: 1 }} />
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+      </ResponsiveDialog>
+
+      {/* إدارة المخزون */}
+      <ResponsiveDialog
+        open={openInventory}
+        onClose={() => setOpenInventory(false)}
+        title={`إدارة المخزون - ${selectedProduct?.name}`}
+        maxWidth="sm"
+      >
+        {selectedProduct && (
+          <ProductInventory
             product={selectedProduct}
             onSuccess={() => {
-              setOpenForm(false);
+              setOpenInventory(false);
               queryClient.invalidateQueries('products');
-              setSnackbar({
-                open: true,
-                message: selectedProduct ? 'تم تحديث المنتج' : 'تم إضافة المنتج',
-                severity: 'success',
-              });
+              setSnackbar({ open: true, message: 'تم تحديث المخزون', severity: 'success' });
             }}
-            onCancel={() => setOpenForm(false)}
           />
-        </DialogContent>
-      </Dialog>
-      
-      {/* تفاصيل المنتج */}
-      <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
-        <DialogTitle>تفاصيل المنتج</DialogTitle>
-        <DialogContent>
-          {selectedProduct && (
-            <Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                  <Box
-                    component="img"
-                    src={selectedProduct.image || '/placeholder-product.jpg'}
-                    alt={selectedProduct.name}
-                    sx={{ width: '100%', borderRadius: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={8}>
-                  <Typography variant="h6">{selectedProduct.name}</Typography>
-                  <Typography variant="body2" color="textSecondary" paragraph>
-                    {selectedProduct.description}
-                  </Typography>
-                  <Box display="flex" gap={2} mb={1}>
-                    <Typography variant="body2">
-                      <strong>السعر:</strong> {formatCurrency(selectedProduct.price)}
-                    </Typography>
-                    {selectedProduct.discountedPrice && (
-                      <Typography variant="body2" color="error">
-                        <strong>بعد الخصم:</strong> {formatCurrency(selectedProduct.discountedPrice)}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Typography variant="body2" mb={1}>
-                    <strong>التصنيف:</strong> {selectedProduct.category}
-                  </Typography>
-                  <Typography variant="body2" mb={1}>
-                    <strong>وقت التحضير:</strong> {selectedProduct.preparationTime || 15} دقيقة
-                  </Typography>
-                  <Box display="flex" alignItems="center" mb={1}>
-                    <strong>التقييم:</strong>
-                    <Rating value={selectedProduct.rating || 0} readOnly size="small" sx={{ ml: 1 }} />
-                    <Typography variant="caption">({selectedProduct.rating || 0})</Typography>
-                  </Box>
-                  <Box display="flex" gap={1} mt={2}>
-                    <Chip
-                      label={selectedProduct.isAvailable ? 'متاح' : 'غير متاح'}
-                      color={selectedProduct.isAvailable ? 'success' : 'error'}
-                      size="small"
-                    />
-                    {selectedProduct.isVegetarian && <Chip label="نباتي" size="small" variant="outlined" />}
-                    {selectedProduct.isVegan && <Chip label="فيجان" size="small" variant="outlined" />}
-                    {selectedProduct.isGlutenFree && <Chip label="خالٍ من الجلوتين" size="small" variant="outlined" />}
-                    {selectedProduct.featured && <Chip label="مميز" size="small" color="warning" />}
-                  </Box>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetails(false)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* إدارة المخزون */}
-      <Dialog open={openInventory} onClose={() => setOpenInventory(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>إدارة المخزون - {selectedProduct?.name}</DialogTitle>
-        <DialogContent>
-          {selectedProduct && (
-            <ProductInventory
-              product={selectedProduct}
-              onSuccess={() => {
-                setOpenInventory(false);
-                queryClient.invalidateQueries('products');
-                setSnackbar({ open: true, message: 'تم تحديث المخزون', severity: 'success' });
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-      
+        )}
+      </ResponsiveDialog>
+
       {/* حوار تأكيد الحذف */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-        <DialogTitle>تأكيد الحذف</DialogTitle>
-        <DialogContent>
-          <Typography>
-            هل أنت متأكد من حذف المنتج "{selectedProduct?.name}"؟
-            هذا الإجراء لا يمكن التراجع عنه.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-          <Button onClick={() => deleteMutation.mutate(selectedProduct?._id)} color="error" variant="contained">
-            حذف
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
+      <ResponsiveDialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        title="تأكيد الحذف"
+        maxWidth="xs"
+        actions={
+          <>
+            <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
+            <Button onClick={() => deleteMutation.mutate(selectedProduct?._id)} color="error" variant="contained">
+              حذف
+            </Button>
+          </>
+        }
+      >
+        <Typography>
+          هل أنت متأكد من حذف المنتج "{selectedProduct?.name}"؟
+        </Typography>
+      </ResponsiveDialog>
+
       {/* إشعارات */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );
