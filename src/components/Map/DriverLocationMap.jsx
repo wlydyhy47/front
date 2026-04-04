@@ -1,7 +1,8 @@
-// components/Map/DriverLocationMap.jsx
+// src/components/Map/DriverLocationMap.jsx - النسخة المصححة
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { getDriverCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -19,45 +20,12 @@ const DriverLocationMap = forwardRef(({
   const map = useRef(null);
   const markers = useRef({});
 
-  // التحقق من صحة الإحداثيات
-  const isValidCoordinate = (lat, lng) => {
-    return (
-      lat !== undefined &&
-      lng !== undefined &&
-      !isNaN(lat) &&
-      !isNaN(lng) &&
-      lat !== null &&
-      lng !== null &&
-      Math.abs(lat) <= 90 &&
-      Math.abs(lng) <= 180
-    );
-  };
-
-  // الحصول على إحداثيات المندوب
-  const getDriverCoordinates = (driver) => {
-    try {
-      if (driver.location?.coordinates && Array.isArray(driver.location.coordinates)) {
-        const coords = driver.location.coordinates;
-        if (coords.length >= 2 && isValidCoordinate(coords[1], coords[0])) {
-          return {
-            lat: parseFloat(coords[1]),
-            lng: parseFloat(coords[0]),
-          };
-        }
-      }
-
-      if (driver.lat && driver.lng && isValidCoordinate(driver.lat, driver.lng)) {
-        return {
-          lat: parseFloat(driver.lat),
-          lng: parseFloat(driver.lng),
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error getting driver coordinates:', error);
-      return null;
-    }
+  // ✅ استخدام الدالة المساعدة من mapHelpers
+  const getValidDrivers = () => {
+    return drivers.filter(driver => {
+      const coords = getDriverCoordinates(driver);
+      return coords !== null;
+    });
   };
 
   useImperativeHandle(ref, () => ({
@@ -81,16 +49,19 @@ const DriverLocationMap = forwardRef(({
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    // المركز الافتراضي
+    // المركز الافتراضي - نيامي، النيجر
     let defaultCenter = [2.1254, 13.5127];
 
     if (center && isValidCoordinate(center.lat, center.lng)) {
       defaultCenter = [center.lng, center.lat];
-    } else if (drivers.length > 0) {
-      const firstDriver = drivers[0];
-      const coords = getDriverCoordinates(firstDriver);
-      if (coords) {
-        defaultCenter = [coords.lng, coords.lat];
+    } else {
+      const validDrivers = getValidDrivers();
+      if (validDrivers.length > 0) {
+        const firstDriver = validDrivers[0];
+        const coords = getDriverCoordinates(firstDriver);
+        if (coords) {
+          defaultCenter = [coords.lng, coords.lat];
+        }
       }
     }
 
@@ -131,10 +102,7 @@ const DriverLocationMap = forwardRef(({
     Object.values(markers.current).forEach(marker => marker.remove());
     markers.current = {};
 
-    const validDrivers = drivers.filter(driver => {
-      const coords = getDriverCoordinates(driver);
-      return coords !== null;
-    });
+    const validDrivers = getValidDrivers();
 
     validDrivers.forEach(driver => {
       const coords = getDriverCoordinates(driver);
@@ -145,13 +113,13 @@ const DriverLocationMap = forwardRef(({
 
       const popup = new mapboxgl.Popup({ offset: 25 })
         .setHTML(`
-                    <div style="padding: 8px; direction: rtl;">
-                        <strong>${driver.name || 'مندوب'}</strong><br/>
-                        ${isOnline ? '🟢 متصل' : '⚫ غير متصل'}<br/>
-                        ${driver.rating ? `⭐ ${driver.rating.toFixed(1)} / 5` : ''}
-                        ${driver.location?.updatedAt ? `<br/><small>${new Date(driver.location.updatedAt).toLocaleTimeString()}</small>` : ''}
-                    </div>
-                `);
+          <div style="padding: 8px; direction: rtl;">
+            <strong>${driver.name || 'مندوب'}</strong><br/>
+            ${isOnline ? '🟢 متصل' : '⚫ غير متصل'}<br/>
+            ${driver.rating ? `⭐ ${driver.rating.toFixed(1)} / 5` : ''}
+            ${driver.location?.updatedAt ? `<br/><small>${new Date(driver.location.updatedAt).toLocaleTimeString()}</small>` : ''}
+          </div>
+        `);
 
       const marker = new mapboxgl.Marker({ color: markerColor })
         .setLngLat([coords.lng, coords.lat])

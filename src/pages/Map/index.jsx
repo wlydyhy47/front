@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
 import { useResponsive } from '../../hooks/useResponsive';
 import {
@@ -23,8 +23,6 @@ import {
     Fab,
     Badge,
     Zoom,
-    Fade,
-    Skeleton,
     FormControlLabel,
     Switch,
     Tabs,
@@ -44,16 +42,13 @@ import {
     ZoomOut,
     FilterList,
     ClearAll,
-    VisibilityOff,
 } from '@mui/icons-material';
 import { mapService, ordersService, storesService } from '../../api';
 import DriverLocationMap from '../../components/Map/DriverLocationMap';
 import OrderTrackingMap from '../../components/Map/OrderTrackingMap';
 import StoreMap from '../../components/Map/StoreMap';
-import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
-import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 
-// تبويبات الصفحة
+// ✅ تبويبات الصفحة
 const TABS = {
     DRIVERS: 'drivers',
     ORDERS: 'orders',
@@ -61,42 +56,25 @@ const TABS = {
     SEARCH: 'search',
 };
 
-// ✅ مكون Wrapper لـ Tooltip يتعامل مع العناصر المعطلة
-const TooltipWrapper = forwardRef(({ title, children, disabled, ...props }, ref) => {
-    // إذا كان الزر معطلاً، نلفه بـ span لضمان عمل الـ Tooltip
-    if (disabled) {
+// ✅ مكون Tooltip آمن يتعامل مع العناصر المعطلة
+const SafeTooltip = ({ title, children, disabled, ...props }) => {
+    // إذا كان الـ Tooltip معطل أو الزر معطل، نلف الزر بـ span
+    if (disabled || (children && children.props && children.props.disabled)) {
         return (
             <Tooltip title={title} {...props}>
-                <span style={{ display: 'inline-flex' }}>
+                <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
                     {children}
                 </span>
             </Tooltip>
         );
     }
     
-    if (!children) return null;
-    
-    if (React.isValidElement(children)) {
-        const childWithRef = React.cloneElement(children, { 
-            ref: ref || children.ref 
-        });
-        return (
-            <Tooltip title={title} {...props}>
-                {childWithRef}
-            </Tooltip>
-        );
-    }
-    
     return (
         <Tooltip title={title} {...props}>
-            <span style={{ display: 'inline-flex' }}>
-                {children}
-            </span>
+            {children}
         </Tooltip>
     );
-});
-
-TooltipWrapper.displayName = 'TooltipWrapper';
+};
 
 export default function MapPage() {
     const { isMobile, isTablet, fontSize, spacing } = useResponsive();
@@ -113,7 +91,7 @@ export default function MapPage() {
     const [error, setError] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [updatingStores, setUpdatingStores] = useState(false);
-    const [autoRefreshInterval, setAutoRefreshInterval] = useState(10000);
+    const [autoRefreshInterval] = useState(10000);
     const [showDriverFilters, setShowDriverFilters] = useState(false);
     const [driverFilters, setDriverFilters] = useState({
         showOnlineOnly: false,
@@ -483,18 +461,18 @@ export default function MapPage() {
                                     <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: fontSize.h3 }}>
                                         مواقع المندوبين
                                     </Typography>
-                                    <Typography variant="caption" color="textSecondary">
+                                    <Typography variant="caption" color="textSecondary" component="div">
                                         {onlineDriversCount} متصل / {offlineDriversCount} غير متصل
                                     </Typography>
                                 </Box>
                                 <Box display="flex" gap={0.5}>
-                                    <TooltipWrapper title="تحديث الخريطة">
+                                    <SafeTooltip title="تحديث الخريطة">
                                         <IconButton onClick={refreshAllData} disabled={driversLoading} size="small">
                                             <Refresh />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="الفلاتر">
+                                    <SafeTooltip title="الفلاتر">
                                         <IconButton 
                                             onClick={() => setShowDriverFilters(!showDriverFilters)}
                                             color={showDriverFilters ? 'primary' : 'default'}
@@ -502,25 +480,25 @@ export default function MapPage() {
                                         >
                                             <FilterList />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="تكبير">
+                                    <SafeTooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="تصغير">
+                                    <SafeTooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="موقعي">
+                                    <SafeTooltip title="موقعي">
                                         <IconButton onClick={getUserLocation} size="small">
                                             <MyLocation />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                 </Box>
                             </Box>
                             
@@ -591,7 +569,7 @@ export default function MapPage() {
                             {driversLoading ? (
                                 <Box>
                                     {[1, 2, 3, 4].map(i => (
-                                        <Skeleton key={i} variant="rectangular" height={72} sx={{ mb: 1, borderRadius: 1 }} />
+                                        <Box key={i} sx={{ mb: 1, height: 72, bgcolor: 'action.hover', borderRadius: 1 }} />
                                     ))}
                                 </Box>
                             ) : (
@@ -622,8 +600,8 @@ export default function MapPage() {
                                             </ListItemAvatar>
                                             <ListItemText
                                                 primary={
-                                                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                                        <Typography variant="body2" fontWeight="bold">
+                                                    <Box component="span" display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                                        <Typography variant="body2" fontWeight="bold" component="span">
                                                             {driver.name}
                                                         </Typography>
                                                         {driver.rating && (
@@ -671,21 +649,21 @@ export default function MapPage() {
                                     تتبع الطلب {selectedOrder && `#${selectedOrder._id.slice(-6)}`}
                                 </Typography>
                                 <Box display="flex" gap={0.5}>
-                                    <TooltipWrapper title="تحديث الخريطة">
+                                    <SafeTooltip title="تحديث الخريطة">
                                         <IconButton onClick={refreshAllData} size="small">
                                             <Refresh />
                                         </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تكبير">
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تصغير">
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                 </Box>
                             </Box>
                             <OrderTrackingMap
@@ -704,7 +682,7 @@ export default function MapPage() {
                             {ordersLoading ? (
                                 <Box>
                                     {[1, 2, 3].map(i => (
-                                        <Skeleton key={i} variant="rectangular" height={100} sx={{ mb: 1, borderRadius: 1 }} />
+                                        <Box key={i} sx={{ mb: 1, height: 100, bgcolor: 'action.hover', borderRadius: 1 }} />
                                     ))}
                                 </Box>
                             ) : (
@@ -729,13 +707,13 @@ export default function MapPage() {
                                         >
                                             <ListItemText
                                                 primary={
-                                                    <Typography variant="body2" fontWeight="bold">
+                                                    <Typography variant="body2" fontWeight="bold" component="span">
                                                         طلب #{order._id.slice(-6)}
                                                     </Typography>
                                                 }
                                                 secondary={
                                                     <Box component="span">
-                                                        <Typography variant="caption" display="block" color="textSecondary">
+                                                        <Typography variant="caption" display="block" color="textSecondary" component="span">
                                                             {order.store?.name || order.storeId}
                                                         </Typography>
                                                         <Chip
@@ -774,13 +752,13 @@ export default function MapPage() {
                                     المتاجر القريبة
                                 </Typography>
                                 <Box display="flex" gap={0.5}>
-                                    <TooltipWrapper title="تحديث الخريطة">
+                                    <SafeTooltip title="تحديث الخريطة">
                                         <IconButton onClick={refreshAllData} disabled={isStoresFetching} size="small">
                                             <Refresh />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     {storesWithoutCoords.length > 0 && !isMobile && (
-                                        <TooltipWrapper title={`تحديث مواقع ${storesWithoutCoords.length} متجر`}>
+                                        <SafeTooltip title={`تحديث مواقع ${storesWithoutCoords.length} متجر`}>
                                             <IconButton 
                                                 onClick={handleUpdateStoresCoordinates} 
                                                 disabled={updatingStores}
@@ -789,27 +767,29 @@ export default function MapPage() {
                                             >
                                                 <Update />
                                             </IconButton>
-                                        </TooltipWrapper>
+                                        </SafeTooltip>
                                     )}
-                                    <TooltipWrapper title="موقعي">
-                                        <IconButton 
-                                            onClick={getUserLocation} 
-                                            disabled={loadingLocation}
-                                            size="small"
-                                        >
-                                            {loadingLocation ? <CircularProgress size={20} /> : <MyLocation />}
-                                        </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تكبير">
+                                    <SafeTooltip title="موقعي">
+                                        <span style={{ display: 'inline-flex' }}>
+                                            <IconButton 
+                                                onClick={getUserLocation} 
+                                                disabled={loadingLocation}
+                                                size="small"
+                                            >
+                                                {loadingLocation ? <CircularProgress size={20} /> : <MyLocation />}
+                                            </IconButton>
+                                        </span>
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تصغير">
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                 </Box>
                             </Box>
                             
@@ -853,7 +833,7 @@ export default function MapPage() {
                             ) : storesLoading ? (
                                 <Box>
                                     {[1, 2, 3, 4].map(i => (
-                                        <Skeleton key={i} variant="rectangular" height={80} sx={{ mb: 1, borderRadius: 1 }} />
+                                        <Box key={i} sx={{ mb: 1, height: 80, bgcolor: 'action.hover', borderRadius: 1 }} />
                                     ))}
                                 </Box>
                             ) : (
@@ -863,6 +843,7 @@ export default function MapPage() {
                                         return (
                                             <ListItem 
                                                 key={store._id} 
+                                                component="div"
                                                 sx={{ 
                                                     borderRadius: 1, 
                                                     mb: 1,
@@ -883,23 +864,20 @@ export default function MapPage() {
                                                 </ListItemAvatar>
                                                 <ListItemText
                                                     primary={
-                                                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                                            <Typography variant="body2" fontWeight="bold">
+                                                        <Box component="span" display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                                            <Typography variant="body2" fontWeight="bold" component="span">
                                                                 {store.name}
                                                             </Typography>
-                                                            {!hasCoords && isMobile && (
-                                                                <VisibilityOff fontSize="small" color="warning" />
-                                                            )}
                                                         </Box>
                                                     }
                                                     secondary={
-                                                        <Box>
+                                                        <Box component="span">
                                                             <Rating 
                                                                 value={store.averageRating || 0} 
                                                                 readOnly 
                                                                 size="small" 
                                                             />
-                                                            <Typography variant="caption" display="block" color="textSecondary">
+                                                            <Typography variant="caption" display="block" color="textSecondary" component="span">
                                                                 {store.category} 
                                                                 {store.distance && ` • ${store.distance.toFixed(1)} كم`}
                                                             </Typography>

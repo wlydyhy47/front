@@ -1,7 +1,8 @@
-// components/Map/StoreMap.jsx
+// src/components/Map/StoreMap.jsx - النسخة المصححة
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { getStoreCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -18,59 +19,9 @@ const StoreMap = forwardRef(({
     const mapContainer = useRef(null);
     const map = useRef(null);
     const markers = useRef([]);
+    const userMarker = useRef(null);
 
-    // التحقق من صحة الإحداثيات
-    const isValidCoordinate = (lat, lng) => {
-        return (
-            lat !== undefined && 
-            lng !== undefined && 
-            !isNaN(lat) && 
-            !isNaN(lng) && 
-            lat !== null && 
-            lng !== null &&
-            Math.abs(lat) <= 90 &&
-            Math.abs(lng) <= 180
-        );
-    };
-
-    // الحصول على إحداثيات المتجر بشكل آمن
-    const getStoreCoordinates = (store) => {
-        try {
-            // محاولة الحصول من address.latitude/longitude
-            if (store.address?.latitude && store.address?.longitude) {
-                return {
-                    lat: parseFloat(store.address.latitude),
-                    lng: parseFloat(store.address.longitude),
-                };
-            }
-            
-            // محاولة الحصول من location.coordinates (GeoJSON format)
-            if (store.location?.coordinates && Array.isArray(store.location.coordinates)) {
-                const coords = store.location.coordinates;
-                if (coords.length >= 2 && isValidCoordinate(coords[1], coords[0])) {
-                    return {
-                        lat: parseFloat(coords[1]),
-                        lng: parseFloat(coords[0]),
-                    };
-                }
-            }
-            
-            // محاولة الحصول من lat/lng مباشرة
-            if (store.lat && store.lng && isValidCoordinate(store.lat, store.lng)) {
-                return {
-                    lat: parseFloat(store.lat),
-                    lng: parseFloat(store.lng),
-                };
-            }
-            
-            return null;
-        } catch (error) {
-            console.error('Error getting store coordinates:', error);
-            return null;
-        }
-    };
-
-    // تصفية المتاجر ذات الإحداثيات الصحيحة فقط
+    // ✅ استخدام الدالة المساعدة من mapHelpers
     const getValidStores = () => {
         return stores.filter(store => {
             const coords = getStoreCoordinates(store);
@@ -95,8 +46,8 @@ const StoreMap = forwardRef(({
     useEffect(() => {
         if (!mapContainer.current) return;
 
-        // المركز الافتراضي مع التحقق من الصحة
-        let defaultCenter = [2.1254, 13.5127]; 
+        // المركز الافتراضي - نيامي، النيجر
+        let defaultCenter = [2.1254, 13.5127];
         
         if (center && isValidCoordinate(center.lat, center.lng)) {
             defaultCenter = [center.lng, center.lat];
@@ -193,20 +144,18 @@ const StoreMap = forwardRef(({
 
     // تحديث موقع المستخدم
     useEffect(() => {
-        if (!map.current || !userLocation) return;
+        if (!map.current) return;
         
-        if (isValidCoordinate(userLocation.lat, userLocation.lng)) {
-            // إضافة علامة موقع المستخدم
-            if (markers.current.userMarker) {
-                markers.current.userMarker.remove();
-            }
-
-            const userMarker = new mapboxgl.Marker({ color: '#2196F3' })
+        // إزالة العلامة القديمة
+        if (userMarker.current) {
+            userMarker.current.remove();
+        }
+        
+        if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
+            userMarker.current = new mapboxgl.Marker({ color: '#2196F3' })
                 .setLngLat([userLocation.lng, userLocation.lat])
-                .setPopup(new mapboxgl.Popup().setHTML('<strong>موقعك الحالي</strong>'))
+                .setPopup(new mapboxgl.Popup().setHTML('<strong>📍 موقعك الحالي</strong>'))
                 .addTo(map.current);
-
-            markers.current.userMarker = userMarker;
         }
     }, [userLocation]);
 

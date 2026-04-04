@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // ✅ أضف React هنا
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Box,
@@ -27,7 +27,14 @@ import {
   ListItem,
   ListItemText,
   ListItemAvatar,
-  CircularProgress, // ✅ أضف هذا أيضاً
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -44,9 +51,7 @@ import {
   DeliveryDining,
   People,
   FilterList,
-  Close,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { usersService } from '../../api';
 import UserForm from './components/UserForm';
 import UserDetails from './components/UserDetails';
@@ -87,7 +92,7 @@ export default function Users() {
   const queryClient = useQueryClient();
   
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 10 : 20);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -101,15 +106,16 @@ export default function Users() {
   const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading, refetch, isFetching } = useQuery(
-    ['users', page, pageSize, debouncedSearch, roleFilter, statusFilter],
+    ['users', page, rowsPerPage, debouncedSearch, roleFilter, statusFilter],
     () => usersService.getUsers({
       page: page + 1,
-      limit: pageSize,
+      limit: rowsPerPage,
       search: debouncedSearch || undefined,
       role: roleFilter !== 'all' ? roleFilter : undefined,
       isActive: statusFilter !== 'all' ? statusFilter === 'active' : undefined,
     }),
     {
+      keepPreviousData: true,
       onSuccess: (response) => {
         console.log('✅ Users data received:', response);
       },
@@ -117,8 +123,7 @@ export default function Users() {
   );
 
   const users = data?.data || [];
-  const pagination = data?.pagination || {};
-  const totalCount = pagination?.total || 0;
+  const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
   const deleteMutation = useMutation(
@@ -167,13 +172,130 @@ export default function Users() {
     }
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const totalUsers = stats?.total || 0;
   const activeUsers = stats?.active || 0;
   const verifiedUsers = stats?.verified || 0;
   const byRole = stats?.byRole || [];
 
-  // عرض بطاقات للهواتف
-  const renderMobileUsers = () => {
+  // ✅ عرض الجدول للشاشات المتوسطة والكبيرة
+  const renderDesktopTable = () => {
+    if (isLoading) {
+      return (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return (
+      <>
+        <TableContainer>
+          <Table size={isTablet ? "small" : "medium"}>
+            <TableHead>
+              <TableRow>
+                <TableCell>الاسم</TableCell>
+                <TableCell>رقم الهاتف</TableCell>
+                {!isTablet && <TableCell>البريد الإلكتروني</TableCell>}
+                <TableCell>الدور</TableCell>
+                <TableCell>الحالة</TableCell>
+                {!isTablet && <TableCell>تاريخ التسجيل</TableCell>}
+                <TableCell align="center">الإجراءات</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => {
+                const RoleIcon = roleConfig[user.role]?.icon || Person;
+                return (
+                  <TableRow key={user._id} hover>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar src={user.image} sx={{ width: 32, height: 32 }}>
+                          {user.name?.charAt(0)}
+                        </Avatar>
+                        <Typography variant="body2" fontWeight="medium">
+                          {user.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>{user.phone}</TableCell>
+                    {!isTablet && <TableCell>{user.email || '-'}</TableCell>}
+                    <TableCell>
+                      <Chip
+                        icon={<RoleIcon />}
+                        label={roleConfig[user.role]?.name || user.role}
+                        size="small"
+                        sx={{
+                          backgroundColor: roleConfig[user.role]?.bgColor,
+                          color: roleConfig[user.role]?.color,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.isActive ? 'نشط' : 'غير نشط'}
+                        size="small"
+                        color={user.isActive ? 'success' : 'error'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    {!isTablet && <TableCell>{formatDate(user.createdAt)}</TableCell>}
+                    <TableCell align="center">
+                      <Box display="flex" justifyContent="center" gap={0.5}>
+                        <Tooltip title="عرض التفاصيل">
+                          <IconButton size="small" onClick={() => handleViewDetails(user)}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="تعديل">
+                          <IconButton size="small" onClick={() => handleEdit(user)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={user.isActive ? 'تعطيل' : 'تفعيل'}>
+                          <IconButton size="small" onClick={() => handleToggleStatus(user)}>
+                            {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="حذف">
+                          <IconButton size="small" onClick={() => handleDelete(user)} color="error">
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        
+        <TablePagination
+          rowsPerPageOptions={[10, 20, 50, 100]}
+          component="div"
+          count={totalCount}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="عدد الصفوف في الصفحة:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count}`}
+        />
+      </>
+    );
+  };
+
+  // ✅ عرض البطاقات للهواتف (مع أزرار الإجراءات)
+  const renderMobileCards = () => {
     if (isLoading) {
       return (
         <Box textAlign="center" py={4}>
@@ -182,12 +304,20 @@ export default function Users() {
       );
     }
 
+    if (users.length === 0) {
+      return (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          لا توجد مستخدمين
+        </Alert>
+      );
+    }
+
     return (
-      <List sx={{ width: '100%' }}>
+      <List sx={{ width: '100%', p: 0 }}>
         {users.map((user) => {
           const RoleIcon = roleConfig[user.role]?.icon || Person;
           return (
-            <Card key={user._id} sx={{ mb: 1.5, p: 1.5 }}>
+            <Card key={user._id} sx={{ mb: 2, p: 1.5 }}>
               <Box display="flex" alignItems="center" gap={2}>
                 <Avatar src={user.image} sx={{ width: 48, height: 48 }}>
                   {user.name?.charAt(0)}
@@ -225,21 +355,72 @@ export default function Users() {
                     />
                   </Box>
                 </Box>
-                <Box>
-                  <IconButton size="small" onClick={() => handleViewDetails(user)}>
-                    <Visibility fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleEdit(user)}>
-                    <Edit fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleToggleStatus(user)}>
-                    {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
-                  </IconButton>
+              </Box>
+              
+              {/* ✅ أزرار الإجراءات - في صف منفصل للهواتف */}
+              <Box 
+                display="flex" 
+                justifyContent="space-between" 
+                alignItems="center" 
+                mt={2} 
+                pt={1} 
+                borderTop="1px solid" 
+                borderColor="divider"
+              >
+                <Box display="flex" gap={0.5}>
+                  <Tooltip title="عرض التفاصيل">
+                    <IconButton size="small" onClick={() => handleViewDetails(user)}>
+                      <Visibility fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="تعديل">
+                    <IconButton size="small" onClick={() => handleEdit(user)}>
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={user.isActive ? 'تعطيل' : 'تفعيل'}>
+                    <IconButton size="small" onClick={() => handleToggleStatus(user)}>
+                      {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="حذف">
+                    <IconButton size="small" onClick={() => handleDelete(user)} color="error">
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
+                <Typography variant="caption" color="textSecondary">
+                  {formatDate(user.createdAt, 'yyyy-MM-dd')}
+                </Typography>
               </Box>
             </Card>
           );
         })}
+        
+        {/* ✅ ترقيم الصفحات للهواتف */}
+        {totalCount > rowsPerPage && (
+          <Box display="flex" justifyContent="center" alignItems="center" mt={2} gap={2}>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 0}
+              size="small"
+            >
+              السابق
+            </Button>
+            <Typography variant="body2">
+              صفحة {page + 1} من {Math.ceil(totalCount / rowsPerPage)}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * rowsPerPage >= totalCount}
+              size="small"
+            >
+              التالي
+            </Button>
+          </Box>
+        )}
       </List>
     );
   };
@@ -264,7 +445,7 @@ export default function Users() {
                     إجمالي المستخدمين
                   </Typography>
                   <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold">
-                    {totalUsers}
+                    {totalUsers.toLocaleString()}
                   </Typography>
                 </Box>
                 <People sx={{ fontSize: { xs: 32, sm: 48 }, color: '#1976d2', opacity: 0.5 }} />
@@ -281,7 +462,7 @@ export default function Users() {
                     المستخدمين النشطين
                   </Typography>
                   <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="success.main">
-                    {activeUsers}
+                    {activeUsers.toLocaleString()}
                   </Typography>
                 </Box>
                 <CheckCircle sx={{ fontSize: { xs: 32, sm: 48 }, color: '#4caf50', opacity: 0.5 }} />
@@ -298,7 +479,7 @@ export default function Users() {
                     المستخدمين الموثقين
                   </Typography>
                   <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="warning.main">
-                    {verifiedUsers}
+                    {verifiedUsers.toLocaleString()}
                   </Typography>
                 </Box>
                 <AdminPanelSettings sx={{ fontSize: { xs: 32, sm: 48 }, color: '#ff9800', opacity: 0.5 }} />
@@ -339,7 +520,7 @@ export default function Users() {
                 onClick={() => setShowFilters(!showFilters)}
                 size="small"
               >
-                فلتر
+                {showFilters ? 'إخفاء الفلتر' : 'فلتر'}
               </Button>
             )}
             <Button
@@ -438,60 +619,7 @@ export default function Users() {
         </Collapse>
 
         {/* عرض حسب نوع الجهاز */}
-        {isMobile ? (
-          renderMobileUsers()
-        ) : (
-          <DataGrid
-            rows={users}
-            columns={[
-              { field: 'name', headerName: 'الاسم', width: 180 },
-              { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
-              { field: 'email', headerName: 'البريد الإلكتروني', width: 200 },
-              { field: 'role', headerName: 'الدور', width: 120 },
-              { field: 'isActive', headerName: 'الحالة', width: 100 },
-              { field: 'createdAt', headerName: 'تاريخ التسجيل', width: 180 },
-              { field: 'actions', headerName: 'الإجراءات', width: 200 },
-            ]}
-            loading={isLoading}
-            rowCount={totalCount}
-            paginationMode="server"
-            page={page}
-            pageSize={pageSize}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => setPageSize(newSize)}
-            rowsPerPageOptions={[10, 20, 50, 100]}
-            autoHeight
-            disableSelectionOnClick
-            getRowId={(row) => row._id}
-          />
-        )}
-
-        {/* ترقيم الصفحات للهواتف */}
-        {isMobile && totalCount > pageSize && (
-          <Box display="flex" justifyContent="center" mt={2}>
-            <Button
-              variant="outlined"
-              onClick={() => setPage(page - 1)}
-              disabled={page === 0}
-              size="small"
-              sx={{ mx: 0.5 }}
-            >
-              السابق
-            </Button>
-            <Typography variant="body2" sx={{ mx: 1, alignSelf: 'center' }}>
-              صفحة {page + 1} من {Math.ceil(totalCount / pageSize)}
-            </Typography>
-            <Button
-              variant="outlined"
-              onClick={() => setPage(page + 1)}
-              disabled={(page + 1) * pageSize >= totalCount}
-              size="small"
-              sx={{ mx: 0.5 }}
-            >
-              التالي
-            </Button>
-          </Box>
-        )}
+        {isMobile ? renderMobileCards() : renderDesktopTable()}
       </Paper>
 
       {/* نموذج إضافة/تعديل مستخدم */}
@@ -529,13 +657,26 @@ export default function Users() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">حذف</Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">
+            حذف
+          </Button>
         </DialogActions>
       </Dialog>
 
       {/* إشعارات */}
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Box>
   );

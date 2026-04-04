@@ -1,7 +1,8 @@
-// components/Map/OrderTrackingMap.jsx
+// src/components/Map/OrderTrackingMap.jsx - النسخة المصححة
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { getOrderCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -15,19 +16,9 @@ const OrderTrackingMap = forwardRef(({
     const mapContainer = useRef(null);
     const map = useRef(null);
     const routeLayer = useRef(null);
-
-    const isValidCoordinate = (lat, lng) => {
-        return (
-            lat !== undefined && 
-            lng !== undefined && 
-            !isNaN(lat) && 
-            !isNaN(lng) && 
-            lat !== null && 
-            lng !== null &&
-            Math.abs(lat) <= 90 &&
-            Math.abs(lng) <= 180
-        );
-    };
+    const pickupMarker = useRef(null);
+    const deliveryMarker = useRef(null);
+    const driverMarker = useRef(null);
 
     useImperativeHandle(ref, () => ({
         zoomIn: () => {
@@ -52,6 +43,25 @@ const OrderTrackingMap = forwardRef(({
                         coordinates: validCoords
                     }
                 });
+                
+                // ضبط الخريطة على المسار
+                const bounds = new mapboxgl.LngLatBounds();
+                validCoords.forEach(coord => bounds.extend(coord));
+                map.current.fitBounds(bounds, { padding: 50 });
+            }
+        },
+        updateDriverLocation: (lat, lng) => {
+            if (!map.current) return;
+            
+            if (driverMarker.current) {
+                driverMarker.current.remove();
+            }
+            
+            if (isValidCoordinate(lat, lng)) {
+                driverMarker.current = new mapboxgl.Marker({ color: '#4CAF50' })
+                    .setLngLat([lng, lat])
+                    .setPopup(new mapboxgl.Popup().setHTML('<strong>🚗 المندوب</strong>'))
+                    .addTo(map.current);
             }
         }
     }));
@@ -124,9 +134,25 @@ const OrderTrackingMap = forwardRef(({
 
         const fetchOrderRoute = async () => {
             try {
-                // هنا يمكنك جلب مسار الطلب من الـ API
                 const response = await fetch(`/api/orders/${orderId}/track`);
                 const data = await response.json();
+                
+                // إضافة علامات نقاط البداية والنهاية
+                if (data.pickupLocation && isValidCoordinate(data.pickupLocation.lat, data.pickupLocation.lng)) {
+                    if (pickupMarker.current) pickupMarker.current.remove();
+                    pickupMarker.current = new mapboxgl.Marker({ color: '#FF5722' })
+                        .setLngLat([data.pickupLocation.lng, data.pickupLocation.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML('<strong>📍 نقطة الاستلام</strong>'))
+                        .addTo(map.current);
+                }
+                
+                if (data.deliveryLocation && isValidCoordinate(data.deliveryLocation.lat, data.deliveryLocation.lng)) {
+                    if (deliveryMarker.current) deliveryMarker.current.remove();
+                    deliveryMarker.current = new mapboxgl.Marker({ color: '#2196F3' })
+                        .setLngLat([data.deliveryLocation.lng, data.deliveryLocation.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML('<strong>🏠 وجهة التوصيل</strong>'))
+                        .addTo(map.current);
+                }
                 
                 if (data.route && data.route.coordinates) {
                     const validCoords = data.route.coordinates.filter(coord => 
@@ -155,6 +181,11 @@ const OrderTrackingMap = forwardRef(({
         };
 
         fetchOrderRoute();
+        
+        // تحديث الموقع كل 5 ثواني
+        const interval = setInterval(fetchOrderRoute, 5000);
+        
+        return () => clearInterval(interval);
     }, [orderId]);
 
     return (

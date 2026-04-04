@@ -1,16 +1,14 @@
-// client.js - أضف هذا التعديل
+// src/api/client.js - النسخة المصححة بالكامل
 
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Accept': 'application/json',
-    // ❌ لا نضع Content-Type هنا لأن axios سيضبطه تلقائياً
-    // 'Content-Type': 'application/json', // أزل هذا السطر
   },
   timeout: 30000,
 });
@@ -24,10 +22,12 @@ apiClient.interceptors.request.use(
     }
     
     // ✅ إذا كانت البيانات FormData، اترك axios يضبط Content-Type تلقائياً
-    // لا نضيف Content-Type يدوياً لأن axios سيضيفه مع الـ boundary
     if (config.data instanceof FormData) {
-      // لا تفعل شيئاً - axios سيضبط multipart/form-data تلقائياً
-      console.log('📤 Sending FormData with image');
+      // لا نضيف Content-Type يدوياً لأن axios سيضيفه مع الـ boundary
+      console.log('📤 Sending FormData');
+      for (let pair of config.data.entries()) {
+        console.log(`   ${pair[0]}:`, pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1]);
+      }
     }
     
     return config;
@@ -37,7 +37,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// باقي الكود كما هو...
 // Response interceptor
 apiClient.interceptors.response.use(
   (response) => {
@@ -46,20 +45,34 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
+    // ✅ تصحيح: استخدام /auth/refresh (بدون -token)
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+        
+        // ✅ المسار الصحيح حسب Backend
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
         
-        localStorage.setItem('accessToken', response.data.data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${response.data.data.accessToken}`;
+        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+        
+        localStorage.setItem('accessToken', accessToken);
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
+        
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         
         return apiClient(originalRequest);
       } catch (refreshError) {
+        console.error('Refresh token failed:', refreshError);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
@@ -69,7 +82,7 @@ apiClient.interceptors.response.use(
       }
     }
     
-    const errorMessage = error.response?.data?.message || 'حدث خطأ غير متوقع';
+    const errorMessage = error.response?.data?.message || error.message || 'حدث خطأ غير متوقع';
     
     if (error.response?.status === 403) {
       toast.error('ليس لديك صلاحية للوصول إلى هذا المورد');
@@ -79,7 +92,7 @@ apiClient.interceptors.response.use(
       toast.error('طلبات كثيرة جداً، الرجاء المحاولة لاحقاً');
     } else if (error.response?.status >= 500) {
       toast.error('خطأ في الخادم، الرجاء المحاولة لاحقاً');
-    } else {
+    } else if (error.response?.status !== 401) {
       toast.error(errorMessage);
     }
     

@@ -1,4 +1,19 @@
-// src/api/endpoints.js - أضف هذا قبل adminEndpoints
+// src/api/endpoints.js - النسخة المصححة بالكامل
+
+// ==================== نقاط نهاية المصادقة ====================
+export const authEndpoints = {
+  login: '/auth/login',
+  register: '/auth/register',
+  logout: '/auth/logout',
+  refresh: '/auth/refresh',
+  verify: '/auth/verify',
+  resendVerification: '/auth/resend-verification',
+  forgotPassword: '/auth/forgot-password',
+  resetPassword: '/auth/reset-password',
+  changePassword: '/auth/change-password',
+  validateToken: '/auth/validate',
+  revokeAllSessions: '/auth/revoke-all-sessions',
+};
 
 // ==================== نقاط نهاية الخرائط ====================
 export const mapEndpoints = {
@@ -28,34 +43,33 @@ export const mapEndpoints = {
   driverCurrentRoute: '/map/driver/current-route',
 };
 
-
-
-
+// ==================== نقاط نهاية الأدمن ====================
 export const adminEndpoints = {
-  // ==================== لوحة التحكم والإحصائيات ====================
+  // لوحة التحكم والإحصائيات
   dashboard: '/admin/dashboard',
   stats: '/admin/stats',
   statsUsers: '/admin/stats/users',
   statsOrders: '/admin/stats/orders',
   statsRevenue: '/admin/stats/revenue',
   
-  // ==================== إدارة المستخدمين ====================
+  // إدارة المستخدمين
   users: '/admin/users',
   userDetails: (id) => `/admin/users/${id}`,
   
-  // ==================== إدارة التجار ====================
+  // إدارة التجار
   vendors: '/admin/vendors',
   vendorDetails: (id) => `/admin/vendors/${id}`,
   verifyVendor: (id) => `/admin/vendors/${id}/verify`,
   updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
   
-  // ==================== إدارة المتاجر ====================
+  // إدارة المتاجر
   stores: '/admin/stores',
   storeDetails: (id) => `/admin/stores/${id}`,
   verifyStore: (id) => `/admin/stores/${id}/verify`,
   toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
+  updateStoreCoordinates: '/admin/stores/update-coordinates',
   
-  // ==================== إدارة المنتجات ====================
+  // إدارة المنتجات
   products: '/admin/products',
   productStats: '/admin/products/stats',
   productDetails: (id) => `/admin/products/${id}`,
@@ -64,7 +78,7 @@ export const adminEndpoints = {
   toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
   updateProductInventory: (id) => `/admin/products/${id}/inventory`,
   
-  // ==================== إدارة الطلبات ====================
+  // إدارة الطلبات
   orders: '/admin/orders',
   orderDetails: (id) => `/admin/orders/${id}`,
   ordersStatsOverview: '/admin/orders/stats/overview',
@@ -74,7 +88,7 @@ export const adminEndpoints = {
   reassignDriver: (id) => `/admin/orders/${id}/reassign`,
   forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
   
-  // ==================== إدارة المندوبين ====================
+  // إدارة المندوبين
   drivers: '/admin/drivers',
   driverDetails: (id) => `/admin/drivers/${id}`,
   driverLocation: (id) => `/admin/drivers/${id}/location`,
@@ -83,41 +97,40 @@ export const adminEndpoints = {
   verifyDriver: (id) => `/admin/drivers/${id}/verify`,
   updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
   
-  // ==================== إدارة الإشعارات ====================
+  // إدارة الإشعارات
   sendNotification: '/admin/notifications/send',
   campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
   notificationsAllStats: '/admin/notifications/all/stats',
   
-  // ==================== إدارة النظام والكاش ====================
+  // إدارة النظام والكاش
   cacheStats: '/admin/cache/stats',
   clearCache: '/admin/cache/clear',
-  clearCacheByPattern: (pattern) => `/admin/cache/clear/${pattern}`,
+  clearCacheByPattern: (pattern) => `/admin/cache/clear/${encodeURIComponent(pattern)}`,
   rateLimitStats: '/admin/rate-limit/stats',
   resetRateLimit: (userId) => `/admin/rate-limit/reset/${userId}`,
   clearAllRateLimits: '/admin/rate-limit/clear-all',
   securityHeaders: '/admin/security/headers',
   
-  // ==================== التحليلات ====================
+  // التحليلات
   analyticsUsers: '/admin/analytics/users',
   analyticsOrders: '/admin/analytics/orders',
   analyticsRevenue: '/admin/analytics/revenue',
   
-  // ==================== التقارير ====================
+  // التقارير
   reportsOrders: '/admin/reports/orders',
   reportsUsers: '/admin/reports/users',
   reportsRevenue: '/admin/reports/revenue',
   reportsDrivers: '/admin/reports/drivers',
   reportsStores: '/admin/reports/stores',
   
-  // ==================== الإحصائيات المتقدمة ====================
+  // الإحصائيات المتقدمة
   advancedStatsDaily: '/admin/advanced-stats/daily',
   advancedStatsWeekly: '/admin/advanced-stats/weekly',
   advancedStatsMonthly: '/admin/advanced-stats/monthly',
   advancedStatsCustom: '/admin/advanced-stats/custom',
 };
 
-
-// دوال مساعدة لإنشاء URLs مع query parameters
+// ==================== دوال مساعدة ====================
 export const buildUrl = (endpoint, params = {}) => {
   const url = new URL(endpoint, window.location.origin);
   Object.keys(params).forEach(key => {
