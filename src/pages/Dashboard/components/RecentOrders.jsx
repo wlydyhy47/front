@@ -10,6 +10,7 @@ import {
   Tooltip,
   Box,
   Typography,
+  Card,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -45,10 +46,11 @@ export default function RecentOrders({ orders = [] }) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {orders.map((order) => (
-          <Card key={order.id} sx={{ p: 1.5 }}>
+          // ✅ FIXED: استخدام order._id بدلاً من order.id
+          <Card key={order._id} sx={{ p: 1.5 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
               <Typography variant="subtitle2" fontWeight="bold">
-                #{order.id.slice(-6)}
+                #{order._id?.slice(-6)}
               </Typography>
               <Chip
                 label={statusLabels[order.status] || order.status}
@@ -71,7 +73,7 @@ export default function RecentOrders({ orders = [] }) {
               </Typography>
               <IconButton
                 size="small"
-                onClick={() => navigate(`/orders/${order.id}`)}
+                onClick={() => navigate(`/orders/${order._id}`)}
               >
                 <Visibility fontSize="small" />
               </IconButton>
@@ -99,8 +101,9 @@ export default function RecentOrders({ orders = [] }) {
         </TableHead>
         <TableBody>
           {orders.map((order) => (
-            <TableRow key={order.id} hover>
-              <TableCell>#{order.id.slice(-6)}</TableCell>
+            // ✅ FIXED: استخدام order._id بدلاً من order.id
+            <TableRow key={order._id} hover>
+              <TableCell>#{order._id?.slice(-6)}</TableCell>
               <TableCell>{order.user?.name || order.userId}</TableCell>
               <TableCell>{order.store?.name || order.storeId}</TableCell>
               <TableCell>{formatCurrency(order.totalPrice)}</TableCell>
@@ -116,7 +119,7 @@ export default function RecentOrders({ orders = [] }) {
                 <Tooltip title="عرض التفاصيل">
                   <IconButton
                     size="small"
-                    onClick={() => navigate(`/orders/${order.id}`)}
+                    onClick={() => navigate(`/orders/${order._id}`)}
                   >
                     <Visibility fontSize="small" />
                   </IconButton>
@@ -129,6 +132,3 @@ export default function RecentOrders({ orders = [] }) {
     </TableContainer>
   );
 }
-
-// استيراد Card
-import { Card } from '@mui/material';

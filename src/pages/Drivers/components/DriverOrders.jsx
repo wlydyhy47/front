@@ -17,8 +17,9 @@ export default function DriverOrders({ orders = [] }) {
         </TableHead>
         <TableBody>
           {orders.map((order) => (
-            <TableRow key={order.id}>
-              <TableCell>{order.id}</TableCell>
+            // ✅ FIXED: استخدام order._id بدلاً من order.id
+            <TableRow key={order._id}>
+              <TableCell>#{order._id?.slice(-6)}</TableCell>
               <TableCell>{order.user?.name || order.userId}</TableCell>
               <TableCell>{order.store?.name || order.storeId}</TableCell>
               <TableCell>{formatCurrency(order.totalPrice)}</TableCell>

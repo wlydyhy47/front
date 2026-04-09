@@ -121,38 +121,67 @@ export default function Products() {
     { title: 'منتجات مميزة', value: stats.featured || 0, icon: Star, color: '#9c27b0' },
   ];
 
-  // أعمدة الجدول
+  // أعمدة الجدول - تم إصلاحها
   const columns = [
     {
       field: 'image',
       headerName: 'الصورة',
       width: 80,
-      renderCell: (params) => (
-        <Avatar 
-          src={params.value || '/placeholder-product.jpg'} 
-          sx={{ width: 40, height: 40, borderRadius: 1 }}
-        >
-          {params.row.name?.charAt(0)}
-        </Avatar>
-      ),
+      renderCell: (params) => {
+        const imageUrl = params.row.image || '/placeholder-product.jpg';
+        return (
+          <Avatar 
+            src={imageUrl} 
+            sx={{ width: 40, height: 40, borderRadius: 1 }}
+          >
+            {params.row.name?.charAt(0) || 'P'}
+          </Avatar>
+        );
+      },
     },
-    { field: 'name', headerName: 'اسم المنتج', width: 180 },
+    { 
+      field: 'name', 
+      headerName: 'اسم المنتج', 
+      width: 180,
+      renderCell: (params) => params.row.name || 'بدون اسم'
+    },
     { 
       field: 'store', 
       headerName: 'المتجر', 
       width: 150,
-      valueGetter: (row) => row.store?.name || row.storeId,
+      renderCell: (params) => {
+        // التعامل مع两种情况: إذا كان store كائنًا أو إذا كان storeId فقط
+        if (params.row.store && typeof params.row.store === 'object') {
+          return params.row.store.name || 'غير محدد';
+        }
+        if (params.row.storeId) {
+          // إذا كان لديك storeId فقط، حاول البحث عن اسم المتجر من storesData
+          const store = storesData?.data?.find(s => s._id === params.row.storeId);
+          return store?.name || params.row.storeId || 'غير محدد';
+        }
+        return 'غير محدد';
+      }
     },
     { 
       field: 'price', 
       headerName: 'السعر', 
       width: 120,
-      valueFormatter: (value) => formatCurrency(value),
+      renderCell: (params) => formatCurrency(params.row.price || 0)
     },
     { 
       field: 'category', 
       headerName: 'التصنيف', 
       width: 120,
+      renderCell: (params) => {
+        const categoriesMap = {
+          'main': 'وجبات رئيسية',
+          'appetizer': 'مقبلات',
+          'beverage': 'مشروبات',
+          'dessert': 'حلويات',
+          'salad': 'سلطات'
+        };
+        return categoriesMap[params.row.category] || params.row.category || 'غير محدد';
+      }
     },
     {
       field: 'isAvailable',
@@ -160,9 +189,9 @@ export default function Products() {
       width: 80,
       renderCell: (params) => (
         <Chip
-          label={params.value ? 'نعم' : 'لا'}
+          label={params.row.isAvailable ? 'نعم' : 'لا'}
           size="small"
-          color={params.value ? 'success' : 'error'}
+          color={params.row.isAvailable ? 'success' : 'error'}
         />
       ),
     },
@@ -171,7 +200,7 @@ export default function Products() {
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
-        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
+        <Rating value={params.row.rating || 0} readOnly size="small" precision={0.5} />
       ),
     },
     {
@@ -377,12 +406,12 @@ export default function Products() {
                   src={product.image || '/placeholder-product.jpg'} 
                   sx={{ width: 50, height: 50, borderRadius: 1 }}
                 >
-                  {product.name?.charAt(0)}
+                  {product.name?.charAt(0) || 'P'}
                 </Avatar>
                 <Box flex={1}>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                     <Typography variant="subtitle2" fontWeight="bold">
-                      {product.name}
+                      {product.name || 'بدون اسم'}
                     </Typography>
                     <Chip
                       label={product.isAvailable ? 'متاح' : 'غير متاح'}
@@ -391,14 +420,14 @@ export default function Products() {
                     />
                   </Box>
                   <Typography variant="caption" color="textSecondary" display="block">
-                    {product.store?.name || product.storeId}
+                    {typeof product.store === 'object' ? product.store?.name : (product.storeId || 'غير محدد')}
                   </Typography>
                   <Typography variant="caption" color="textSecondary" display="block">
-                    {product.category}
+                    {product.category || 'غير محدد'}
                   </Typography>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
                     <Typography variant="body2" fontWeight="bold" color="primary">
-                      {formatCurrency(product.price)}
+                      {formatCurrency(product.price || 0)}
                     </Typography>
                     <Rating value={product.rating || 0} readOnly size="small" />
                   </Box>
@@ -479,16 +508,16 @@ export default function Products() {
                   src={selectedProduct.image || '/placeholder-product.jpg'}
                   sx={{ width: 120, height: 120, mx: 'auto', borderRadius: 2 }}
                 >
-                  {selectedProduct.name?.charAt(0)}
+                  {selectedProduct.name?.charAt(0) || 'P'}
                 </Avatar>
               </Grid>
               <Grid item xs={12} md={8}>
-                <Typography variant="h6">{selectedProduct.name}</Typography>
+                <Typography variant="h6">{selectedProduct.name || 'بدون اسم'}</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
                   {selectedProduct.description || 'لا يوجد وصف'}
                 </Typography>
                 <Typography variant="body2">
-                  <strong>السعر:</strong> {formatCurrency(selectedProduct.price)}
+                  <strong>السعر:</strong> {formatCurrency(selectedProduct.price || 0)}
                 </Typography>
                 {selectedProduct.discountedPrice && (
                   <Typography variant="body2" color="error">
@@ -496,7 +525,7 @@ export default function Products() {
                   </Typography>
                 )}
                 <Typography variant="body2">
-                  <strong>التصنيف:</strong> {selectedProduct.category}
+                  <strong>التصنيف:</strong> {selectedProduct.category || 'غير محدد'}
                 </Typography>
                 <Typography variant="body2">
                   <strong>وقت التحضير:</strong> {selectedProduct.preparationTime || 15} دقيقة
@@ -515,7 +544,7 @@ export default function Products() {
       <ResponsiveDialog
         open={openInventory}
         onClose={() => setOpenInventory(false)}
-        title={`إدارة المخزون - ${selectedProduct?.name}`}
+        title={`إدارة المخزون - ${selectedProduct?.name || ''}`}
         maxWidth="sm"
       >
         {selectedProduct && (
@@ -546,7 +575,7 @@ export default function Products() {
         }
       >
         <Typography>
-          هل أنت متأكد من حذف المنتج "{selectedProduct?.name}"؟
+          هل أنت متأكد من حذف المنتج "{selectedProduct?.name || ''}"؟
         </Typography>
       </ResponsiveDialog>
 
@@ -560,5 +589,5 @@ export default function Products() {
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
-  );
+  ); 
 }

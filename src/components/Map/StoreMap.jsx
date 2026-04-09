@@ -6,6 +6,7 @@ import { getStoreCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
+// ✅ FIXED: استخدام forwardRef مع قوسين عاديين (props, ref)
 const StoreMap = forwardRef(({ 
     stores = [], 
     userLocation, 
@@ -48,7 +49,7 @@ const StoreMap = forwardRef(({
 
         // المركز الافتراضي - نيامي، النيجر
         let defaultCenter = [2.1254, 13.5127];
-        
+
         if (center && isValidCoordinate(center.lat, center.lng)) {
             defaultCenter = [center.lng, center.lat];
         } else if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
@@ -145,12 +146,12 @@ const StoreMap = forwardRef(({
     // تحديث موقع المستخدم
     useEffect(() => {
         if (!map.current) return;
-        
+
         // إزالة العلامة القديمة
         if (userMarker.current) {
             userMarker.current.remove();
         }
-        
+
         if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
             userMarker.current = new mapboxgl.Marker({ color: '#2196F3' })
                 .setLngLat([userLocation.lng, userLocation.lat])
@@ -160,14 +161,14 @@ const StoreMap = forwardRef(({
     }, [userLocation]);
 
     return (
-        <div 
-            ref={mapContainer} 
-            style={{ 
-                width: '100%', 
+        <div
+            ref={mapContainer}
+            style={{
+                width: '100%',
                 height: `${height}px`,
                 borderRadius: '8px',
                 overflow: 'hidden'
-            }} 
+            }}
         />
     );
 });

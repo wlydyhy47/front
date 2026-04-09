@@ -6,6 +6,7 @@ import { getDriverCoordinates, isValidCoordinate } from '../../utils/mapHelpers'
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
+// ✅ FIXED: استخدام forwardRef مع قوسين عاديين (props, ref)
 const DriverLocationMap = forwardRef(({
   drivers = [],
   selectedDriver,
@@ -36,7 +37,7 @@ const DriverLocationMap = forwardRef(({
       if (map.current) map.current.zoomOut();
     },
     flyToDriver: (driverId) => {
-      const driver = drivers.find(d => d.id === driverId);
+      const driver = drivers.find(d => d._id === driverId);
       if (driver) {
         const coords = getDriverCoordinates(driver);
         if (coords && map.current) {
@@ -130,7 +131,7 @@ const DriverLocationMap = forwardRef(({
         if (onDriverSelect) onDriverSelect(driver);
       });
 
-      markers.current[driver.id] = marker;
+      markers.current[driver._id] = marker;
     });
 
   }, [drivers, onDriverSelect]);
@@ -148,9 +149,9 @@ const DriverLocationMap = forwardRef(({
         marker.getElement().style.transform = '';
       });
 
-      if (markers.current[selectedDriver.id]) {
-        markers.current[selectedDriver.id].getElement().style.transform = 'scale(1.2)';
-        markers.current[selectedDriver.id].togglePopup();
+      if (markers.current[selectedDriver._id]) {
+        markers.current[selectedDriver._id].getElement().style.transform = 'scale(1.2)';
+        markers.current[selectedDriver._id].togglePopup();
       }
     }
   }, [selectedDriver]);

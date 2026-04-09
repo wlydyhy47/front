@@ -308,7 +308,7 @@ export default function MapPage() {
         }
     };
     
-    // تتبع طلب
+    // ✅ FIXED: استخدام order._id بدلاً من order.id
     const handleTrackOrder = async (order) => {
         setSelectedOrder(order);
         try {
@@ -319,7 +319,7 @@ export default function MapPage() {
         }
     };
     
-    // عرض موقع مندوب
+    // ✅ FIXED: استخدام driver._id بدلاً من driver.id
     const handleViewDriverLocation = (driver) => {
         setSelectedDriver(driver);
         if (driver.location?.coordinates && driver.location.coordinates.length >= 2) {
@@ -575,16 +575,17 @@ export default function MapPage() {
                             ) : (
                                 <List sx={{ p: 0 }}>
                                     {driversList.map((driver) => (
+                                        // ✅ FIXED: استخدام driver._id بدلاً من driver.id
                                         <ListItem
-                                            key={driver.id}
+                                            key={driver._id}
                                             component="div"
-                                            selected={selectedDriver?.id === driver.id}
+                                            selected={selectedDriver?._id === driver._id}
                                             onClick={() => handleViewDriverLocation(driver)}
                                             sx={{
                                                 borderRadius: 1,
                                                 mb: 1,
                                                 cursor: 'pointer',
-                                                bgcolor: selectedDriver?.id === driver.id ? 'action.selected' : 'transparent',
+                                                bgcolor: selectedDriver?._id === driver._id ? 'action.selected' : 'transparent',
                                                 transition: 'all 0.2s ease',
                                                 p: isMobile ? 1 : 1.5,
                                                 '&:hover': {
@@ -688,6 +689,7 @@ export default function MapPage() {
                             ) : (
                                 <List sx={{ p: 0 }}>
                                     {(activeOrders?.data?.orders || []).map((order) => (
+                                        // ✅ FIXED: استخدام order._id بدلاً من order.id
                                         <ListItem
                                             key={order._id}
                                             component="div"
@@ -841,6 +843,7 @@ export default function MapPage() {
                                     {storesList.slice(0, isMobile ? 5 : 10).map((store) => {
                                         const hasCoords = store.address?.latitude || store.location?.coordinates;
                                         return (
+                                            // ✅ FIXED: استخدام store._id بدلاً من store.id
                                             <ListItem 
                                                 key={store._id} 
                                                 component="div"

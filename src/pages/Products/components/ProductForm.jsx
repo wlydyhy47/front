@@ -64,7 +64,7 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
       isVegan: product?.isVegan || false,
       isGlutenFree: product?.isGlutenFree || false,
       spicyLevel: product?.spicyLevel || 0,
-      store: product?.store?.id || product?.storeId || '',
+      store: product?.store?.id || product?.storeId || product?.store?._id || '',
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -75,25 +75,30 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         // إنشاء FormData لإرسال البيانات مع الصورة
         const formData = new FormData();
 
-        // إضافة الحقول الأساسية
+        // ✅ إضافة الحقول الأساسية
         formData.append('name', values.name);
         formData.append('price', Number(values.price));
         formData.append('category', values.category);
         formData.append('description', values.description || '');
         formData.append('preparationTime', Number(values.preparationTime));
         formData.append('isAvailable', values.isAvailable);
-        formData.append('store', values.store); // مهم: إرسال store ID
+        
+        // ✅ مهم: إرسال store ID (للمشرف فقط)
+        if (values.store) {
+          formData.append('store', values.store);
+        }
 
-        // الحقول الاختيارية
+        // ✅ الحقول الاختيارية
         if (values.discountedPrice) {
           formData.append('discountedPrice', Number(values.discountedPrice));
         }
 
-        if (values.spicyLevel !== undefined) {
-          formData.append('spicyLevel', Number(values.spicyLevel));
-        }
+        // ✅ FIXED: Removed duplicate spicyLevel - it's already in attributes
+        // if (values.spicyLevel !== undefined) {
+        //   formData.append('spicyLevel', Number(values.spicyLevel));
+        // }
 
-        // الخصائص في كائن attributes
+        // ✅ الخصائص في كائن attributes
         const attributes = {
           spicyLevel: Number(values.spicyLevel || 0),
           isVegetarian: values.isVegetarian,
@@ -102,12 +107,12 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         };
         formData.append('attributes', JSON.stringify(attributes));
 
-        // المكونات
+        // ✅ المكونات
         if (ingredients.length > 0) {
           formData.append('ingredients', ingredients.join(','));
         }
 
-        // صورة المنتج
+        // ✅ صورة المنتج
         if (imageFile) {
           console.log('📸 Adding image to FormData:', imageFile.name);
           formData.append('image', imageFile);
@@ -115,7 +120,7 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
           console.warn('⚠️ No image file selected');
         }
 
-        // المخزون الافتراضي
+        // ✅ المخزون الافتراضي
         const inventory = {
           quantity: 0,
           unit: 'piece',
@@ -124,6 +129,26 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         };
         formData.append('inventory', JSON.stringify(inventory));
 
+        // ✅ إضافة tags إذا وجدت (اختياري)
+        if (values.tags && values.tags.length > 0) {
+          formData.append('tags', values.tags.join(','));
+        }
+
+        // ✅ إضافة options إذا وجدت (اختياري - للإضافات مثل الحجم، النكهات)
+        if (values.options && values.options.length > 0) {
+          formData.append('options', JSON.stringify(values.options));
+        }
+
+        // ✅ تسجيل جميع البيانات للـ debugging
+        console.log('📦 FormData entries:');
+        for (let pair of formData.entries()) {
+          if (pair[1] instanceof File) {
+            console.log(pair[0], '=', pair[1].name, '(File)');
+          } else {
+            console.log(pair[0], '=', pair[1]);
+          }
+        }
+
         if (isEdit) {
           await productsService.updateProduct(product._id, formData);
         } else {
@@ -131,7 +156,8 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         }
         onSuccess();
       } catch (err) {
-        console.error('Error creating product:', err);
+        console.error('❌ Error creating product:', err);
+        console.error('❌ Error response:', err.response?.data);
         setError(err.response?.data?.message || 'حدث خطأ أثناء حفظ المنتج');
       } finally {
         setLoading(false);
@@ -180,7 +206,7 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
   return (
     <form onSubmit={formik.handleSubmit}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}

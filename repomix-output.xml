@@ -49,6 +49,7 @@ public/_headers
 public/_redirects
 public/background.mp4
 public/favicon.svg
+public/icon.png
 public/icons.svg
 public/logo.png
 README.md
@@ -215,13 +216,13 @@ export default defineConfig([
 
 <file path="index.html">
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon"  href="/public/icon.png"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Admin Dashboard - Food Delivery Platform Management System" />
-    <title>Admin Dashboard - Food Delivery</title>
+    <title>Admin Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -346,231 +347,6 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-</file>
-
-<file path="src/api/client.js">
-// client.js - أضف هذا التعديل
-
-import axios from 'axios';
-import { toast } from 'react-hot-toast';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Accept': 'application/json',
-    // ❌ لا نضع Content-Type هنا لأن axios سيضبطه تلقائياً
-    // 'Content-Type': 'application/json', // أزل هذا السطر
-  },
-  timeout: 30000,
-});
-
-// Request interceptor
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
-    // ✅ إذا كانت البيانات FormData، اترك axios يضبط Content-Type تلقائياً
-    // لا نضيف Content-Type يدوياً لأن axios سيضيفه مع الـ boundary
-    if (config.data instanceof FormData) {
-      // لا تفعل شيئاً - axios سيضبط multipart/form-data تلقائياً
-      console.log('📤 Sending FormData with image');
-    }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// باقي الكود كما هو...
-// Response interceptor
-apiClient.interceptors.response.use(
-  (response) => {
-    return response.data;
-  },
-  async (error) => {
-    const originalRequest = error.config;
-    
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
-          refreshToken,
-        });
-        
-        localStorage.setItem('accessToken', response.data.data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${response.data.data.accessToken}`;
-        
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        toast.error('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى');
-        return Promise.reject(refreshError);
-      }
-    }
-    
-    const errorMessage = error.response?.data?.message || 'حدث خطأ غير متوقع';
-    
-    if (error.response?.status === 403) {
-      toast.error('ليس لديك صلاحية للوصول إلى هذا المورد');
-    } else if (error.response?.status === 404) {
-      toast.error('المورد غير موجود');
-    } else if (error.response?.status === 429) {
-      toast.error('طلبات كثيرة جداً، الرجاء المحاولة لاحقاً');
-    } else if (error.response?.status >= 500) {
-      toast.error('خطأ في الخادم، الرجاء المحاولة لاحقاً');
-    } else {
-      toast.error(errorMessage);
-    }
-    
-    return Promise.reject(error);
-  }
-);
-
-export default apiClient;
-</file>
-
-<file path="src/api/endpoints.js">
-// src/api/endpoints.js - أضف هذا قبل adminEndpoints
-
-// ==================== نقاط نهاية الخرائط ====================
-export const mapEndpoints = {
-  // المسارات
-  directions: '/map/directions',
-  distance: '/map/distance',
-  staticMap: '/map/static',
-  
-  // البحث عن العناوين
-  geocode: '/map/geocode',
-  reverseGeocode: '/map/reverse-geocode',
-  
-  // المتاجر
-  stores: '/map/stores',
-  storeIsochrone: (storeId) => `/map/store/${storeId}/isochrone`,
-  nearestDriver: '/map/store/nearest-driver',
-  
-  // المندوبين
-  driverLocation: '/map/driver/location',
-  trackDriver: (driverId) => `/map/driver/${driverId}/track`,
-  allDriversLocations: '/map/drivers/locations',
-  trackAllDrivers: '/map/drivers/track-all',
-  nearestDriverAdmin: '/map/nearest-driver',
-  
-  // الطلبات
-  orderRoute: (orderId) => `/map/order/${orderId}/route`,
-  driverCurrentRoute: '/map/driver/current-route',
-};
-
-
-
-
-export const adminEndpoints = {
-  // ==================== لوحة التحكم والإحصائيات ====================
-  dashboard: '/admin/dashboard',
-  stats: '/admin/stats',
-  statsUsers: '/admin/stats/users',
-  statsOrders: '/admin/stats/orders',
-  statsRevenue: '/admin/stats/revenue',
-  
-  // ==================== إدارة المستخدمين ====================
-  users: '/admin/users',
-  userDetails: (id) => `/admin/users/${id}`,
-  
-  // ==================== إدارة التجار ====================
-  vendors: '/admin/vendors',
-  vendorDetails: (id) => `/admin/vendors/${id}`,
-  verifyVendor: (id) => `/admin/vendors/${id}/verify`,
-  updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
-  
-  // ==================== إدارة المتاجر ====================
-  stores: '/admin/stores',
-  storeDetails: (id) => `/admin/stores/${id}`,
-  verifyStore: (id) => `/admin/stores/${id}/verify`,
-  toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
-  
-  // ==================== إدارة المنتجات ====================
-  products: '/admin/products',
-  productStats: '/admin/products/stats',
-  productDetails: (id) => `/admin/products/${id}`,
-  featureProduct: (id) => `/admin/products/${id}/feature`,
-  updateProductImage: (id) => `/admin/products/${id}/image`,
-  toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
-  updateProductInventory: (id) => `/admin/products/${id}/inventory`,
-  
-  // ==================== إدارة الطلبات ====================
-  orders: '/admin/orders',
-  orderDetails: (id) => `/admin/orders/${id}`,
-  ordersStatsOverview: '/admin/orders/stats/overview',
-  ordersStatsDaily: '/admin/orders/stats/daily',
-  ordersStatsMonthly: '/admin/orders/stats/monthly',
-  assignDriver: (id) => `/admin/orders/${id}/assign`,
-  reassignDriver: (id) => `/admin/orders/${id}/reassign`,
-  forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
-  
-  // ==================== إدارة المندوبين ====================
-  drivers: '/admin/drivers',
-  driverDetails: (id) => `/admin/drivers/${id}`,
-  driverLocation: (id) => `/admin/drivers/${id}/location`,
-  driverStats: (id) => `/admin/drivers/${id}/stats`,
-  driverOrders: (id) => `/admin/drivers/${id}/orders`,
-  verifyDriver: (id) => `/admin/drivers/${id}/verify`,
-  updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
-  
-  // ==================== إدارة الإشعارات ====================
-  sendNotification: '/admin/notifications/send',
-  campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
-  notificationsAllStats: '/admin/notifications/all/stats',
-  
-  // ==================== إدارة النظام والكاش ====================
-  cacheStats: '/admin/cache/stats',
-  clearCache: '/admin/cache/clear',
-  clearCacheByPattern: (pattern) => `/admin/cache/clear/${pattern}`,
-  rateLimitStats: '/admin/rate-limit/stats',
-  resetRateLimit: (userId) => `/admin/rate-limit/reset/${userId}`,
-  clearAllRateLimits: '/admin/rate-limit/clear-all',
-  securityHeaders: '/admin/security/headers',
-  
-  // ==================== التحليلات ====================
-  analyticsUsers: '/admin/analytics/users',
-  analyticsOrders: '/admin/analytics/orders',
-  analyticsRevenue: '/admin/analytics/revenue',
-  
-  // ==================== التقارير ====================
-  reportsOrders: '/admin/reports/orders',
-  reportsUsers: '/admin/reports/users',
-  reportsRevenue: '/admin/reports/revenue',
-  reportsDrivers: '/admin/reports/drivers',
-  reportsStores: '/admin/reports/stores',
-  
-  // ==================== الإحصائيات المتقدمة ====================
-  advancedStatsDaily: '/admin/advanced-stats/daily',
-  advancedStatsWeekly: '/admin/advanced-stats/weekly',
-  advancedStatsMonthly: '/admin/advanced-stats/monthly',
-  advancedStatsCustom: '/admin/advanced-stats/custom',
-};
-
-
-// دوال مساعدة لإنشاء URLs مع query parameters
-export const buildUrl = (endpoint, params = {}) => {
-  const url = new URL(endpoint, window.location.origin);
-  Object.keys(params).forEach(key => {
-    if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-      url.searchParams.append(key, params[key]);
-    }
-  });
-  return url.pathname + url.search;
-};
 </file>
 
 <file path="src/api/index.js">
@@ -1776,623 +1552,6 @@ export default function Header({ onMenuClick }) {
     </AppBar>
   );
 }
-</file>
-
-<file path="src/components/Map/DriverLocationMap.jsx">
-// components/Map/DriverLocationMap.jsx
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
-
-const DriverLocationMap = forwardRef(({
-  drivers = [],
-  selectedDriver,
-  onDriverSelect,
-  height = 500,
-  center,
-  zoom,
-  onZoomChange,
-  onMapReady
-}, ref) => {
-  const mapContainer = useRef(null);
-  const map = useRef(null);
-  const markers = useRef({});
-
-  // التحقق من صحة الإحداثيات
-  const isValidCoordinate = (lat, lng) => {
-    return (
-      lat !== undefined &&
-      lng !== undefined &&
-      !isNaN(lat) &&
-      !isNaN(lng) &&
-      lat !== null &&
-      lng !== null &&
-      Math.abs(lat) <= 90 &&
-      Math.abs(lng) <= 180
-    );
-  };
-
-  // الحصول على إحداثيات المندوب
-  const getDriverCoordinates = (driver) => {
-    try {
-      if (driver.location?.coordinates && Array.isArray(driver.location.coordinates)) {
-        const coords = driver.location.coordinates;
-        if (coords.length >= 2 && isValidCoordinate(coords[1], coords[0])) {
-          return {
-            lat: parseFloat(coords[1]),
-            lng: parseFloat(coords[0]),
-          };
-        }
-      }
-
-      if (driver.lat && driver.lng && isValidCoordinate(driver.lat, driver.lng)) {
-        return {
-          lat: parseFloat(driver.lat),
-          lng: parseFloat(driver.lng),
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error getting driver coordinates:', error);
-      return null;
-    }
-  };
-
-  useImperativeHandle(ref, () => ({
-    zoomIn: () => {
-      if (map.current) map.current.zoomIn();
-    },
-    zoomOut: () => {
-      if (map.current) map.current.zoomOut();
-    },
-    flyToDriver: (driverId) => {
-      const driver = drivers.find(d => d.id === driverId);
-      if (driver) {
-        const coords = getDriverCoordinates(driver);
-        if (coords && map.current) {
-          map.current.flyTo({ center: [coords.lng, coords.lat], zoom: 14 });
-        }
-      }
-    }
-  }));
-
-  useEffect(() => {
-    if (!mapContainer.current) return;
-
-    // المركز الافتراضي
-    let defaultCenter = [2.1254, 13.5127];
-
-    if (center && isValidCoordinate(center.lat, center.lng)) {
-      defaultCenter = [center.lng, center.lat];
-    } else if (drivers.length > 0) {
-      const firstDriver = drivers[0];
-      const coords = getDriverCoordinates(firstDriver);
-      if (coords) {
-        defaultCenter = [coords.lng, coords.lat];
-      }
-    }
-
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: defaultCenter,
-      zoom: zoom || 12,
-    });
-
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.current.addControl(new mapboxgl.FullscreenControl());
-
-    if (onZoomChange) {
-      map.current.on('zoomend', () => {
-        onZoomChange(map.current.getZoom());
-      });
-    }
-
-    if (onMapReady) {
-      map.current.on('load', () => {
-        onMapReady();
-      });
-    }
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-      }
-    };
-  }, []);
-
-  // إضافة علامات المندوبين
-  useEffect(() => {
-    if (!map.current) return;
-
-    // إزالة العلامات القديمة
-    Object.values(markers.current).forEach(marker => marker.remove());
-    markers.current = {};
-
-    const validDrivers = drivers.filter(driver => {
-      const coords = getDriverCoordinates(driver);
-      return coords !== null;
-    });
-
-    validDrivers.forEach(driver => {
-      const coords = getDriverCoordinates(driver);
-      if (!coords) return;
-
-      const isOnline = driver.isOnline;
-      const markerColor = isOnline ? '#4CAF50' : '#9E9E9E';
-
-      const popup = new mapboxgl.Popup({ offset: 25 })
-        .setHTML(`
-                    <div style="padding: 8px; direction: rtl;">
-                        <strong>${driver.name || 'مندوب'}</strong><br/>
-                        ${isOnline ? '🟢 متصل' : '⚫ غير متصل'}<br/>
-                        ${driver.rating ? `⭐ ${driver.rating.toFixed(1)} / 5` : ''}
-                        ${driver.location?.updatedAt ? `<br/><small>${new Date(driver.location.updatedAt).toLocaleTimeString()}</small>` : ''}
-                    </div>
-                `);
-
-      const marker = new mapboxgl.Marker({ color: markerColor })
-        .setLngLat([coords.lng, coords.lat])
-        .setPopup(popup)
-        .addTo(map.current);
-
-      marker.getElement().addEventListener('click', () => {
-        if (onDriverSelect) onDriverSelect(driver);
-      });
-
-      markers.current[driver.id] = marker;
-    });
-
-  }, [drivers, onDriverSelect]);
-
-  // تحديث العلامة المحددة
-  useEffect(() => {
-    if (!map.current || !selectedDriver) return;
-
-    const coords = getDriverCoordinates(selectedDriver);
-    if (coords) {
-      map.current.flyTo({ center: [coords.lng, coords.lat], zoom: 14 });
-
-      // تمييز العلامة المحددة
-      Object.values(markers.current).forEach(marker => {
-        marker.getElement().style.transform = '';
-      });
-
-      if (markers.current[selectedDriver.id]) {
-        markers.current[selectedDriver.id].getElement().style.transform = 'scale(1.2)';
-        markers.current[selectedDriver.id].togglePopup();
-      }
-    }
-  }, [selectedDriver]);
-
-  return (
-    <div
-      ref={mapContainer}
-      style={{
-        width: '100%',
-        height: `${height}px`,
-        borderRadius: '8px',
-        overflow: 'hidden'
-      }}
-    />
-  );
-});
-
-DriverLocationMap.displayName = 'DriverLocationMap';
-
-export default DriverLocationMap;
-</file>
-
-<file path="src/components/Map/OrderTrackingMap.jsx">
-// components/Map/OrderTrackingMap.jsx
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
-
-const OrderTrackingMap = forwardRef(({ 
-    orderId, 
-    height = 500,
-    center,
-    zoom,
-    onZoomChange 
-}, ref) => {
-    const mapContainer = useRef(null);
-    const map = useRef(null);
-    const routeLayer = useRef(null);
-
-    const isValidCoordinate = (lat, lng) => {
-        return (
-            lat !== undefined && 
-            lng !== undefined && 
-            !isNaN(lat) && 
-            !isNaN(lng) && 
-            lat !== null && 
-            lng !== null &&
-            Math.abs(lat) <= 90 &&
-            Math.abs(lng) <= 180
-        );
-    };
-
-    useImperativeHandle(ref, () => ({
-        zoomIn: () => {
-            if (map.current) map.current.zoomIn();
-        },
-        zoomOut: () => {
-            if (map.current) map.current.zoomOut();
-        },
-        addRoute: (coordinates) => {
-            if (!map.current) return;
-            
-            const validCoords = coordinates.filter(coord => 
-                isValidCoordinate(coord[1], coord[0])
-            );
-            
-            if (validCoords.length > 0 && map.current.getSource('route')) {
-                map.current.getSource('route').setData({
-                    type: 'Feature',
-                    properties: {},
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: validCoords
-                    }
-                });
-            }
-        }
-    }));
-
-    useEffect(() => {
-        if (!mapContainer.current) return;
-
-        let defaultCenter = [2.1254, 13.5127];
-        
-        if (center && isValidCoordinate(center.lat, center.lng)) {
-            defaultCenter = [center.lng, center.lat];
-        }
-
-        map.current = new mapboxgl.Map({
-            container: mapContainer.current,
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: defaultCenter,
-            zoom: zoom || 12,
-        });
-
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        map.current.addControl(new mapboxgl.FullscreenControl());
-
-        if (onZoomChange) {
-            map.current.on('zoomend', () => {
-                onZoomChange(map.current.getZoom());
-            });
-        }
-
-        map.current.on('load', () => {
-            // إضافة طبقة المسار
-            map.current.addSource('route', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: []
-                    }
-                }
-            });
-
-            map.current.addLayer({
-                id: 'route',
-                type: 'line',
-                source: 'route',
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                paint: {
-                    'line-color': '#3887be',
-                    'line-width': 5,
-                    'line-opacity': 0.75
-                }
-            });
-        });
-
-        return () => {
-            if (map.current) {
-                map.current.remove();
-            }
-        };
-    }, []);
-
-    // جلب مسار الطلب
-    useEffect(() => {
-        if (!orderId || !map.current) return;
-
-        const fetchOrderRoute = async () => {
-            try {
-                // هنا يمكنك جلب مسار الطلب من الـ API
-                const response = await fetch(`/api/orders/${orderId}/track`);
-                const data = await response.json();
-                
-                if (data.route && data.route.coordinates) {
-                    const validCoords = data.route.coordinates.filter(coord => 
-                        isValidCoordinate(coord[1], coord[0])
-                    );
-                    
-                    if (validCoords.length > 0 && map.current.getSource('route')) {
-                        map.current.getSource('route').setData({
-                            type: 'Feature',
-                            properties: {},
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: validCoords
-                            }
-                        });
-                        
-                        // ضبط الخريطة على المسار
-                        const bounds = new mapboxgl.LngLatBounds();
-                        validCoords.forEach(coord => bounds.extend(coord));
-                        map.current.fitBounds(bounds, { padding: 50 });
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to fetch order route:', error);
-            }
-        };
-
-        fetchOrderRoute();
-    }, [orderId]);
-
-    return (
-        <div 
-            ref={mapContainer} 
-            style={{ 
-                width: '100%', 
-                height: `${height}px`,
-                borderRadius: '8px',
-                overflow: 'hidden'
-            }} 
-        />
-    );
-});
-
-OrderTrackingMap.displayName = 'OrderTrackingMap';
-
-export default OrderTrackingMap;
-</file>
-
-<file path="src/components/Map/StoreMap.jsx">
-// components/Map/StoreMap.jsx
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
-
-const StoreMap = forwardRef(({ 
-    stores = [], 
-    userLocation, 
-    onStoreSelect, 
-    onRefresh,
-    height = 500,
-    center,
-    zoom,
-    onZoomChange 
-}, ref) => {
-    const mapContainer = useRef(null);
-    const map = useRef(null);
-    const markers = useRef([]);
-
-    // التحقق من صحة الإحداثيات
-    const isValidCoordinate = (lat, lng) => {
-        return (
-            lat !== undefined && 
-            lng !== undefined && 
-            !isNaN(lat) && 
-            !isNaN(lng) && 
-            lat !== null && 
-            lng !== null &&
-            Math.abs(lat) <= 90 &&
-            Math.abs(lng) <= 180
-        );
-    };
-
-    // الحصول على إحداثيات المتجر بشكل آمن
-    const getStoreCoordinates = (store) => {
-        try {
-            // محاولة الحصول من address.latitude/longitude
-            if (store.address?.latitude && store.address?.longitude) {
-                return {
-                    lat: parseFloat(store.address.latitude),
-                    lng: parseFloat(store.address.longitude),
-                };
-            }
-            
-            // محاولة الحصول من location.coordinates (GeoJSON format)
-            if (store.location?.coordinates && Array.isArray(store.location.coordinates)) {
-                const coords = store.location.coordinates;
-                if (coords.length >= 2 && isValidCoordinate(coords[1], coords[0])) {
-                    return {
-                        lat: parseFloat(coords[1]),
-                        lng: parseFloat(coords[0]),
-                    };
-                }
-            }
-            
-            // محاولة الحصول من lat/lng مباشرة
-            if (store.lat && store.lng && isValidCoordinate(store.lat, store.lng)) {
-                return {
-                    lat: parseFloat(store.lat),
-                    lng: parseFloat(store.lng),
-                };
-            }
-            
-            return null;
-        } catch (error) {
-            console.error('Error getting store coordinates:', error);
-            return null;
-        }
-    };
-
-    // تصفية المتاجر ذات الإحداثيات الصحيحة فقط
-    const getValidStores = () => {
-        return stores.filter(store => {
-            const coords = getStoreCoordinates(store);
-            return coords !== null;
-        });
-    };
-
-    useImperativeHandle(ref, () => ({
-        zoomIn: () => {
-            if (map.current) map.current.zoomIn();
-        },
-        zoomOut: () => {
-            if (map.current) map.current.zoomOut();
-        },
-        flyTo: (lng, lat) => {
-            if (map.current && isValidCoordinate(lat, lng)) {
-                map.current.flyTo({ center: [lng, lat], zoom: 14 });
-            }
-        }
-    }));
-
-    useEffect(() => {
-        if (!mapContainer.current) return;
-
-        // المركز الافتراضي مع التحقق من الصحة
-        let defaultCenter = [2.1254, 13.5127]; 
-        
-        if (center && isValidCoordinate(center.lat, center.lng)) {
-            defaultCenter = [center.lng, center.lat];
-        } else if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
-            defaultCenter = [userLocation.lng, userLocation.lat];
-        }
-
-        map.current = new mapboxgl.Map({
-            container: mapContainer.current,
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: defaultCenter,
-            zoom: zoom || 12,
-        });
-
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        map.current.addControl(new mapboxgl.FullscreenControl());
-
-        if (onZoomChange) {
-            map.current.on('zoomend', () => {
-                onZoomChange(map.current.getZoom());
-            });
-        }
-
-        return () => {
-            if (map.current) {
-                map.current.remove();
-            }
-        };
-    }, []);
-
-    // إضافة علامات المتاجر
-    useEffect(() => {
-        if (!map.current) return;
-
-        // إزالة العلامات القديمة
-        markers.current.forEach(marker => marker.remove());
-        markers.current = [];
-
-        const validStores = getValidStores();
-
-        validStores.forEach(store => {
-            const coords = getStoreCoordinates(store);
-            if (!coords) return;
-
-            const popup = new mapboxgl.Popup({ offset: 25 })
-                .setHTML(`
-                    <div style="padding: 8px; min-width: 150px; direction: rtl;">
-                        <h4 style="margin: 0 0 5px 0;">${store.name || 'متجر'}</h4>
-                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
-                            ${store.category || ''}
-                        </p>
-                        ${store.averageRating ? `
-                            <p style="margin: 5px 0; font-size: 12px;">
-                                ⭐ ${store.averageRating.toFixed(1)} / 5
-                            </p>
-                        ` : ''}
-                        <button 
-                            onclick="window.selectStore('${store._id}')"
-                            style="
-                                margin-top: 5px;
-                                padding: 4px 12px;
-                                background: #1976d2;
-                                color: white;
-                                border: none;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-size: 12px;
-                            "
-                        >
-                            عرض التفاصيل
-                        </button>
-                    </div>
-                `);
-
-            const marker = new mapboxgl.Marker({ color: '#FF5722' })
-                .setLngLat([coords.lng, coords.lat])
-                .setPopup(popup)
-                .addTo(map.current);
-
-            marker.getElement().addEventListener('click', () => {
-                if (onStoreSelect) onStoreSelect(store);
-            });
-
-            markers.current.push(marker);
-        });
-
-        // ربط الدالة العالمية
-        window.selectStore = (storeId) => {
-            const store = stores.find(s => s._id === storeId);
-            if (store && onStoreSelect) onStoreSelect(store);
-        };
-
-    }, [stores, onStoreSelect]);
-
-    // تحديث موقع المستخدم
-    useEffect(() => {
-        if (!map.current || !userLocation) return;
-        
-        if (isValidCoordinate(userLocation.lat, userLocation.lng)) {
-            // إضافة علامة موقع المستخدم
-            if (markers.current.userMarker) {
-                markers.current.userMarker.remove();
-            }
-
-            const userMarker = new mapboxgl.Marker({ color: '#2196F3' })
-                .setLngLat([userLocation.lng, userLocation.lat])
-                .setPopup(new mapboxgl.Popup().setHTML('<strong>موقعك الحالي</strong>'))
-                .addTo(map.current);
-
-            markers.current.userMarker = userMarker;
-        }
-    }, [userLocation]);
-
-    return (
-        <div 
-            ref={mapContainer} 
-            style={{ 
-                width: '100%', 
-                height: `${height}px`,
-                borderRadius: '8px',
-                overflow: 'hidden'
-            }} 
-        />
-    );
-});
-
-StoreMap.displayName = 'StoreMap';
-
-export default StoreMap;
 </file>
 
 <file path="src/context/AuthContext.jsx">
@@ -4015,7 +3174,7 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
       isVegan: product?.isVegan || false,
       isGlutenFree: product?.isGlutenFree || false,
       spicyLevel: product?.spicyLevel || 0,
-      store: product?.store?.id || product?.storeId || '',
+      store: product?.store?.id || product?.storeId || product?.store?._id || '',
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -4026,25 +3185,30 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         // إنشاء FormData لإرسال البيانات مع الصورة
         const formData = new FormData();
 
-        // إضافة الحقول الأساسية
+        // ✅ إضافة الحقول الأساسية
         formData.append('name', values.name);
         formData.append('price', Number(values.price));
         formData.append('category', values.category);
         formData.append('description', values.description || '');
         formData.append('preparationTime', Number(values.preparationTime));
         formData.append('isAvailable', values.isAvailable);
-        formData.append('store', values.store); // مهم: إرسال store ID
+        
+        // ✅ مهم: إرسال store ID (للمشرف فقط)
+        if (values.store) {
+          formData.append('store', values.store);
+        }
 
-        // الحقول الاختيارية
+        // ✅ الحقول الاختيارية
         if (values.discountedPrice) {
           formData.append('discountedPrice', Number(values.discountedPrice));
         }
 
-        if (values.spicyLevel !== undefined) {
-          formData.append('spicyLevel', Number(values.spicyLevel));
-        }
+        // ✅ FIXED: Removed duplicate spicyLevel - it's already in attributes
+        // if (values.spicyLevel !== undefined) {
+        //   formData.append('spicyLevel', Number(values.spicyLevel));
+        // }
 
-        // الخصائص في كائن attributes
+        // ✅ الخصائص في كائن attributes
         const attributes = {
           spicyLevel: Number(values.spicyLevel || 0),
           isVegetarian: values.isVegetarian,
@@ -4053,12 +3217,12 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         };
         formData.append('attributes', JSON.stringify(attributes));
 
-        // المكونات
+        // ✅ المكونات
         if (ingredients.length > 0) {
           formData.append('ingredients', ingredients.join(','));
         }
 
-        // صورة المنتج
+        // ✅ صورة المنتج
         if (imageFile) {
           console.log('📸 Adding image to FormData:', imageFile.name);
           formData.append('image', imageFile);
@@ -4066,7 +3230,7 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
           console.warn('⚠️ No image file selected');
         }
 
-        // المخزون الافتراضي
+        // ✅ المخزون الافتراضي
         const inventory = {
           quantity: 0,
           unit: 'piece',
@@ -4075,6 +3239,26 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         };
         formData.append('inventory', JSON.stringify(inventory));
 
+        // ✅ إضافة tags إذا وجدت (اختياري)
+        if (values.tags && values.tags.length > 0) {
+          formData.append('tags', values.tags.join(','));
+        }
+
+        // ✅ إضافة options إذا وجدت (اختياري - للإضافات مثل الحجم، النكهات)
+        if (values.options && values.options.length > 0) {
+          formData.append('options', JSON.stringify(values.options));
+        }
+
+        // ✅ تسجيل جميع البيانات للـ debugging
+        console.log('📦 FormData entries:');
+        for (let pair of formData.entries()) {
+          if (pair[1] instanceof File) {
+            console.log(pair[0], '=', pair[1].name, '(File)');
+          } else {
+            console.log(pair[0], '=', pair[1]);
+          }
+        }
+
         if (isEdit) {
           await productsService.updateProduct(product._id, formData);
         } else {
@@ -4082,7 +3266,8 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
         }
         onSuccess();
       } catch (err) {
-        console.error('Error creating product:', err);
+        console.error('❌ Error creating product:', err);
+        console.error('❌ Error response:', err.response?.data);
         setError(err.response?.data?.message || 'حدث خطأ أثناء حفظ المنتج');
       } finally {
         setLoading(false);
@@ -4131,7 +3316,7 @@ export default function ProductForm({ product, onSuccess, onCancel }) {
   return (
     <form onSubmit={formik.handleSubmit}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
@@ -4754,6 +3939,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Avatar,
+  Badge,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -4763,6 +3950,9 @@ import {
   DeliveryDining as DeliveryIcon,
   Schedule as ScheduleIcon,
   Map as MapIcon,
+  CloudUpload as CloudUploadIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { storesService } from '../../../api';
 
@@ -4837,7 +4027,46 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
     delivery: false,
     hours: false,
   });
+  
+  // ✅ FIXED: إضافة states لرفع الملفات
+  const [logoFile, setLogoFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(store?.logo || null);
+  const [coverPreview, setCoverPreview] = useState(store?.coverImage || null);
+  
   const isEdit = !!store;
+
+  // ✅ FIXED: دالة معالجة رفع الشعار
+  const handleLogoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setLogoFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setLogoPreview(previewUrl);
+    }
+  };
+
+  // ✅ FIXED: دالة معالجة رفع صورة الغلاف
+  const handleCoverChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setCoverFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setCoverPreview(previewUrl);
+    }
+  };
+
+  // ✅ FIXED: دالة إزالة الشعار
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(store?.logo || null);
+  };
+
+  // ✅ FIXED: دالة إزالة صورة الغلاف
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(store?.coverImage || null);
+  };
 
   // دالة لجلب الموقع الحالي للمستخدم
   const getCurrentLocation = () => {
@@ -4917,7 +4146,6 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
       },
     },
     validationSchema,
-    // في دالة onSubmit الخاصة بـ StoreForm
     onSubmit: async (values) => {
       setLoading(true);
       setError('');
@@ -4925,45 +4153,82 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
       try {
         const formData = new FormData();
 
-        // إضافة الحقول الأساسية
-        Object.keys(values).forEach(key => {
-          if (key === 'address') {
-            const addressString = JSON.stringify(values.address);
-            console.log('📦 Address JSON:', addressString);
-            formData.append('address', addressString);
-          }
-          else if (key === 'deliveryInfo') {
-            const deliveryString = JSON.stringify(values.deliveryInfo);
-            console.log('📦 Delivery JSON:', deliveryString);
-            formData.append('deliveryInfo', deliveryString);
-          }
-          else if (key === 'openingHours') {
-            const hoursString = JSON.stringify(values.openingHours);
-            console.log('📦 Opening Hours JSON:', hoursString);
-            formData.append('openingHours', hoursString);
-          }
-          else if (key === 'tags') {
-            const tagsString = values.tags.join(',');
-            console.log('📦 Tags:', tagsString);
-            formData.append('tags', tagsString);
-          }
-          else if (key !== 'logo' && key !== 'coverImage') {
-            console.log(`📦 ${key}:`, values[key]);
-            formData.append(key, values[key]);
-          }
-        });
-
-        // تسجيل جميع البيانات التي تم إضافتها إلى FormData
-        console.log('📦 FormData entries:');
-        for (let pair of formData.entries()) {
-          console.log(pair[0], '=', pair[1]);
+        // ✅ FIXED: إضافة الحقول الأساسية مع التحويل إلى JSON
+        // اسم المتجر
+        formData.append('name', values.name);
+        
+        // الوصف
+        formData.append('description', values.description);
+        
+        // التصنيف
+        formData.append('category', values.category);
+        
+        // رقم الهاتف
+        formData.append('phone', values.phone);
+        
+        // البريد الإلكتروني (اختياري)
+        if (values.email) {
+          formData.append('email', values.email);
+        }
+        
+        // الموقع الإلكتروني (اختياري)
+        if (values.website) {
+          formData.append('website', values.website);
+        }
+        
+        // حالة المتجر
+        formData.append('isOpen', values.isOpen);
+        
+        // ✅ تحويل address إلى JSON string
+        const addressString = JSON.stringify(values.address);
+        console.log('📦 Address JSON:', addressString);
+        formData.append('address', addressString);
+        
+        // ✅ تحويل deliveryInfo إلى JSON string
+        const deliveryString = JSON.stringify(values.deliveryInfo);
+        console.log('📦 Delivery JSON:', deliveryString);
+        formData.append('deliveryInfo', deliveryString);
+        
+        // ✅ تحويل openingHours إلى JSON string
+        const hoursString = JSON.stringify(values.openingHours);
+        console.log('📦 Opening Hours JSON:', hoursString);
+        formData.append('openingHours', hoursString);
+        
+        // ✅ تحويل tags إلى string مفصول بفواصل
+        if (values.tags && values.tags.length > 0) {
+          const tagsString = values.tags.join(',');
+          console.log('📦 Tags:', tagsString);
+          formData.append('tags', tagsString);
+        }
+        
+        // ✅ FIXED: إضافة الصور إذا وجدت
+        if (logoFile) {
+          console.log('📦 Adding logo file:', logoFile.name);
+          formData.append('logo', logoFile);
+        }
+        
+        if (coverFile) {
+          console.log('📦 Adding cover image file:', coverFile.name);
+          formData.append('coverImage', coverFile);
         }
 
+        // تسجيل جميع البيانات التي تم إضافتها إلى FormData للـ debugging
+        console.log('📦 FormData entries:');
+        for (let pair of formData.entries()) {
+          if (pair[0].includes('File') || pair[1] instanceof File) {
+            console.log(pair[0], '=', pair[1].name, '(File)');
+          } else {
+            console.log(pair[0], '=', pair[1]);
+          }
+        }
+
+        // إرسال البيانات
         if (isEdit) {
           await storesService.updateStore(store._id, formData);
         } else {
           await storesService.createStore(formData);
         }
+        
         onSuccess();
       } catch (err) {
         console.error('❌ Store form error:', err);
@@ -4978,15 +4243,134 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
   return (
     <form onSubmit={formik.handleSubmit}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
       <Grid container spacing={2}>
-        {/* المعلومات الأساسية */}
+        {/* ✅ FIXED: قسم الصور */}
         <Grid item xs={12}>
           <Typography variant="h6" sx={{ mb: 2 }}>
+            صور المتجر
+          </Typography>
+        </Grid>
+
+        {/* شعار المتجر */}
+        <Grid item xs={12} sm={6}>
+          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              شعار المتجر
+            </Typography>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                badgeContent={
+                  logoPreview && !logoFile && !store?.logo ? null : (
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveLogo}
+                      sx={{
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }
+              >
+                <Avatar
+                  src={logoPreview}
+                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
+                  variant="rounded"
+                >
+                  {!logoPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
+                </Avatar>
+              </Badge>
+            </Box>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              رفع شعار
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleLogoChange}
+              />
+            </Button>
+            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+              PNG, JPG, JPEG (Max 2MB)
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* صورة الغلاف */}
+        <Grid item xs={12} sm={6}>
+          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              صورة الغلاف
+            </Typography>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                badgeContent={
+                  coverPreview && !coverFile && !store?.coverImage ? null : (
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveCover}
+                      sx={{
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }
+              >
+                <Avatar
+                  src={coverPreview}
+                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
+                  variant="rounded"
+                >
+                  {!coverPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
+                </Avatar>
+              </Badge>
+            </Box>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              رفع غلاف
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleCoverChange}
+              />
+            </Button>
+            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+              PNG, JPG, JPEG (Max 5MB)
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* المعلومات الأساسية */}
+        <Grid item xs={12}>
+          <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>
             المعلومات الأساسية
           </Typography>
         </Grid>
@@ -6280,61 +5664,6 @@ export const getInitials = (name) => {
 };
 </file>
 
-<file path="src/utils/mapHelpers.js">
-// utils/mapHelpers.js
-export const isValidCoordinate = (lat, lng) => {
-    return (
-        lat !== undefined && 
-        lng !== undefined && 
-        !isNaN(lat) && 
-        !isNaN(lng) && 
-        lat !== null && 
-        lng !== null &&
-        Math.abs(lat) <= 90 &&
-        Math.abs(lng) <= 180
-    );
-};
-
-export const getSafeCoordinates = (data, type = 'store') => {
-    try {
-        if (type === 'store') {
-            if (data.address?.latitude && data.address?.longitude) {
-                return {
-                    lat: parseFloat(data.address.latitude),
-                    lng: parseFloat(data.address.longitude),
-                };
-            }
-            if (data.location?.coordinates && Array.isArray(data.location.coordinates)) {
-                const coords = data.location.coordinates;
-                if (coords.length >= 2 && isValidCoordinate(coords[1], coords[0])) {
-                    return {
-                        lat: parseFloat(coords[1]),
-                        lng: parseFloat(coords[0]),
-                    };
-                }
-            }
-        }
-        
-        if (type === 'driver') {
-            if (data.location?.coordinates && Array.isArray(data.location.coordinates)) {
-                const coords = data.location.coordinates;
-                if (coords.length >= 2 && isValidCoordinate(coords[1], coords[0])) {
-                    return {
-                        lat: parseFloat(coords[1]),
-                        lng: parseFloat(coords[0]),
-                    };
-                }
-            }
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error getting coordinates:', error);
-        return null;
-    }
-};
-</file>
-
 <file path="src/utils/validators.js">
 import * as Yup from 'yup';
 
@@ -6420,6 +5749,257 @@ export const hasPermission = (user, requiredRole) => {
 // التحقق من أن المستخدم أدمن
 export const isAdmin = (user) => {
   return user?.role === 'admin';
+};
+</file>
+
+<file path="src/api/client.js">
+// src/api/client.js - النسخة المصححة بالكامل
+
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Accept': 'application/json',
+  },
+  timeout: 30000,
+});
+
+// Request interceptor
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // ✅ إذا كانت البيانات FormData، اترك axios يضبط Content-Type تلقائياً
+    if (config.data instanceof FormData) {
+      // لا نضيف Content-Type يدوياً لأن axios سيضيفه مع الـ boundary
+      console.log('📤 Sending FormData');
+      for (let pair of config.data.entries()) {
+        console.log(`   ${pair[0]}:`, pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1]);
+      }
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+apiClient.interceptors.response.use(
+  (response) => {
+    return response.data;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // ✅ تصحيح: استخدام /auth/refresh (بدون -token)
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+        
+        // ✅ المسار الصحيح حسب Backend
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+        
+        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+        
+        localStorage.setItem('accessToken', accessToken);
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
+        
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        console.error('Refresh token failed:', refreshError);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        toast.error('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى');
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    const errorMessage = error.response?.data?.message || error.message || 'حدث خطأ غير متوقع';
+    
+    if (error.response?.status === 403) {
+      toast.error('ليس لديك صلاحية للوصول إلى هذا المورد');
+    } else if (error.response?.status === 404) {
+      toast.error('المورد غير موجود');
+    } else if (error.response?.status === 429) {
+      toast.error('طلبات كثيرة جداً، الرجاء المحاولة لاحقاً');
+    } else if (error.response?.status >= 500) {
+      toast.error('خطأ في الخادم، الرجاء المحاولة لاحقاً');
+    } else if (error.response?.status !== 401) {
+      toast.error(errorMessage);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+</file>
+
+<file path="src/api/endpoints.js">
+// src/api/endpoints.js - النسخة المصححة بالكامل
+
+// ==================== نقاط نهاية المصادقة ====================
+export const authEndpoints = {
+  login: '/auth/login',
+  register: '/auth/register',
+  logout: '/auth/logout',
+  refresh: '/auth/refresh',
+  verify: '/auth/verify',
+  resendVerification: '/auth/resend-verification',
+  forgotPassword: '/auth/forgot-password',
+  resetPassword: '/auth/reset-password',
+  changePassword: '/auth/change-password',
+  validateToken: '/auth/validate',
+  revokeAllSessions: '/auth/revoke-all-sessions',
+};
+
+// ==================== نقاط نهاية الخرائط ====================
+export const mapEndpoints = {
+  // المسارات
+  directions: '/map/directions',
+  distance: '/map/distance',
+  staticMap: '/map/static',
+  
+  // البحث عن العناوين
+  geocode: '/map/geocode',
+  reverseGeocode: '/map/reverse-geocode',
+  
+  // المتاجر
+  stores: '/map/stores',
+  storeIsochrone: (storeId) => `/map/store/${storeId}/isochrone`,
+  nearestDriver: '/map/store/nearest-driver',
+  
+  // المندوبين
+  driverLocation: '/map/driver/location',
+  trackDriver: (driverId) => `/map/driver/${driverId}/track`,
+  allDriversLocations: '/map/drivers/locations',
+  trackAllDrivers: '/map/drivers/track-all',
+  nearestDriverAdmin: '/map/nearest-driver',
+  
+  // الطلبات
+  orderRoute: (orderId) => `/map/order/${orderId}/route`,
+  driverCurrentRoute: '/map/driver/current-route',
+};
+
+// ==================== نقاط نهاية الأدمن ====================
+export const adminEndpoints = {
+  // لوحة التحكم والإحصائيات
+  dashboard: '/admin/dashboard',
+  stats: '/admin/stats',
+  statsUsers: '/admin/stats/users',
+  statsOrders: '/admin/stats/orders',
+  statsRevenue: '/admin/stats/revenue',
+  
+  // إدارة المستخدمين
+  users: '/admin/users',
+  userDetails: (id) => `/admin/users/${id}`,
+  
+  // إدارة التجار
+  vendors: '/admin/vendors',
+  vendorDetails: (id) => `/admin/vendors/${id}`,
+  verifyVendor: (id) => `/admin/vendors/${id}/verify`,
+  updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
+  
+  // إدارة المتاجر
+  stores: '/admin/stores',
+  storeDetails: (id) => `/admin/stores/${id}`,
+  verifyStore: (id) => `/admin/stores/${id}/verify`,
+  toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
+  updateStoreCoordinates: '/admin/stores/update-coordinates',
+  
+  // إدارة المنتجات
+  products: '/admin/products',
+  productStats: '/admin/products/stats',
+  productDetails: (id) => `/admin/products/${id}`,
+  featureProduct: (id) => `/admin/products/${id}/feature`,
+  updateProductImage: (id) => `/admin/products/${id}/image`,
+  toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
+  updateProductInventory: (id) => `/admin/products/${id}/inventory`,
+  
+  // إدارة الطلبات
+  orders: '/admin/orders',
+  orderDetails: (id) => `/admin/orders/${id}`,
+  ordersStatsOverview: '/admin/orders/stats/overview',
+  ordersStatsDaily: '/admin/orders/stats/daily',
+  ordersStatsMonthly: '/admin/orders/stats/monthly',
+  assignDriver: (id) => `/admin/orders/${id}/assign`,
+  reassignDriver: (id) => `/admin/orders/${id}/reassign`,
+  forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
+  
+  // إدارة المندوبين
+  drivers: '/admin/drivers',
+  driverDetails: (id) => `/admin/drivers/${id}`,
+  driverLocation: (id) => `/admin/drivers/${id}/location`,
+  driverStats: (id) => `/admin/drivers/${id}/stats`,
+  driverOrders: (id) => `/admin/drivers/${id}/orders`,
+  verifyDriver: (id) => `/admin/drivers/${id}/verify`,
+  updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
+  
+  // إدارة الإشعارات
+  sendNotification: '/admin/notifications/send',
+  campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
+  notificationsAllStats: '/admin/notifications/all/stats',
+  
+  // إدارة النظام والكاش
+  cacheStats: '/admin/cache/stats',
+  clearCache: '/admin/cache/clear',
+  clearCacheByPattern: (pattern) => `/admin/cache/clear/${encodeURIComponent(pattern)}`,
+  rateLimitStats: '/admin/rate-limit/stats',
+  resetRateLimit: (userId) => `/admin/rate-limit/reset/${userId}`,
+  clearAllRateLimits: '/admin/rate-limit/clear-all',
+  securityHeaders: '/admin/security/headers',
+  
+  // التحليلات
+  analyticsUsers: '/admin/analytics/users',
+  analyticsOrders: '/admin/analytics/orders',
+  analyticsRevenue: '/admin/analytics/revenue',
+  
+  // التقارير
+  reportsOrders: '/admin/reports/orders',
+  reportsUsers: '/admin/reports/users',
+  reportsRevenue: '/admin/reports/revenue',
+  reportsDrivers: '/admin/reports/drivers',
+  reportsStores: '/admin/reports/stores',
+  
+  // الإحصائيات المتقدمة
+  advancedStatsDaily: '/admin/advanced-stats/daily',
+  advancedStatsWeekly: '/admin/advanced-stats/weekly',
+  advancedStatsMonthly: '/admin/advanced-stats/monthly',
+  advancedStatsCustom: '/admin/advanced-stats/custom',
+};
+
+// ==================== دوال مساعدة ====================
+export const buildUrl = (endpoint, params = {}) => {
+  const url = new URL(endpoint, window.location.origin);
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+      url.searchParams.append(key, params[key]);
+    }
+  });
+  return url.pathname + url.search;
 };
 </file>
 
@@ -6844,6 +6424,571 @@ export default function Sidebar({ onClose }) {
     </Box>
   );
 }
+</file>
+
+<file path="src/components/Map/DriverLocationMap.jsx">
+// src/components/Map/DriverLocationMap.jsx - النسخة المصححة
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { getDriverCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
+
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+
+const DriverLocationMap = forwardRef(({
+  drivers = [],
+  selectedDriver,
+  onDriverSelect,
+  height = 500,
+  center,
+  zoom,
+  onZoomChange,
+  onMapReady
+}, ref) => {
+  const mapContainer = useRef(null);
+  const map = useRef(null);
+  const markers = useRef({});
+
+  // ✅ استخدام الدالة المساعدة من mapHelpers
+  const getValidDrivers = () => {
+    return drivers.filter(driver => {
+      const coords = getDriverCoordinates(driver);
+      return coords !== null;
+    });
+  };
+
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => {
+      if (map.current) map.current.zoomIn();
+    },
+    zoomOut: () => {
+      if (map.current) map.current.zoomOut();
+    },
+    flyToDriver: (driverId) => {
+      const driver = drivers.find(d => d.id === driverId);
+      if (driver) {
+        const coords = getDriverCoordinates(driver);
+        if (coords && map.current) {
+          map.current.flyTo({ center: [coords.lng, coords.lat], zoom: 14 });
+        }
+      }
+    }
+  }));
+
+  useEffect(() => {
+    if (!mapContainer.current) return;
+
+    // المركز الافتراضي - نيامي، النيجر
+    let defaultCenter = [2.1254, 13.5127];
+
+    if (center && isValidCoordinate(center.lat, center.lng)) {
+      defaultCenter = [center.lng, center.lat];
+    } else {
+      const validDrivers = getValidDrivers();
+      if (validDrivers.length > 0) {
+        const firstDriver = validDrivers[0];
+        const coords = getDriverCoordinates(firstDriver);
+        if (coords) {
+          defaultCenter = [coords.lng, coords.lat];
+        }
+      }
+    }
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: defaultCenter,
+      zoom: zoom || 12,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.current.addControl(new mapboxgl.FullscreenControl());
+
+    if (onZoomChange) {
+      map.current.on('zoomend', () => {
+        onZoomChange(map.current.getZoom());
+      });
+    }
+
+    if (onMapReady) {
+      map.current.on('load', () => {
+        onMapReady();
+      });
+    }
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+      }
+    };
+  }, []);
+
+  // إضافة علامات المندوبين
+  useEffect(() => {
+    if (!map.current) return;
+
+    // إزالة العلامات القديمة
+    Object.values(markers.current).forEach(marker => marker.remove());
+    markers.current = {};
+
+    const validDrivers = getValidDrivers();
+
+    validDrivers.forEach(driver => {
+      const coords = getDriverCoordinates(driver);
+      if (!coords) return;
+
+      const isOnline = driver.isOnline;
+      const markerColor = isOnline ? '#4CAF50' : '#9E9E9E';
+
+      const popup = new mapboxgl.Popup({ offset: 25 })
+        .setHTML(`
+          <div style="padding: 8px; direction: rtl;">
+            <strong>${driver.name || 'مندوب'}</strong><br/>
+            ${isOnline ? '🟢 متصل' : '⚫ غير متصل'}<br/>
+            ${driver.rating ? `⭐ ${driver.rating.toFixed(1)} / 5` : ''}
+            ${driver.location?.updatedAt ? `<br/><small>${new Date(driver.location.updatedAt).toLocaleTimeString()}</small>` : ''}
+          </div>
+        `);
+
+      const marker = new mapboxgl.Marker({ color: markerColor })
+        .setLngLat([coords.lng, coords.lat])
+        .setPopup(popup)
+        .addTo(map.current);
+
+      marker.getElement().addEventListener('click', () => {
+        if (onDriverSelect) onDriverSelect(driver);
+      });
+
+      markers.current[driver.id] = marker;
+    });
+
+  }, [drivers, onDriverSelect]);
+
+  // تحديث العلامة المحددة
+  useEffect(() => {
+    if (!map.current || !selectedDriver) return;
+
+    const coords = getDriverCoordinates(selectedDriver);
+    if (coords) {
+      map.current.flyTo({ center: [coords.lng, coords.lat], zoom: 14 });
+
+      // تمييز العلامة المحددة
+      Object.values(markers.current).forEach(marker => {
+        marker.getElement().style.transform = '';
+      });
+
+      if (markers.current[selectedDriver.id]) {
+        markers.current[selectedDriver.id].getElement().style.transform = 'scale(1.2)';
+        markers.current[selectedDriver.id].togglePopup();
+      }
+    }
+  }, [selectedDriver]);
+
+  return (
+    <div
+      ref={mapContainer}
+      style={{
+        width: '100%',
+        height: `${height}px`,
+        borderRadius: '8px',
+        overflow: 'hidden'
+      }}
+    />
+  );
+});
+
+DriverLocationMap.displayName = 'DriverLocationMap';
+
+export default DriverLocationMap;
+</file>
+
+<file path="src/components/Map/OrderTrackingMap.jsx">
+// src/components/Map/OrderTrackingMap.jsx - النسخة المصححة
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { getOrderCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
+
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+
+const OrderTrackingMap = forwardRef(({ 
+    orderId, 
+    height = 500,
+    center,
+    zoom,
+    onZoomChange 
+}, ref) => {
+    const mapContainer = useRef(null);
+    const map = useRef(null);
+    const routeLayer = useRef(null);
+    const pickupMarker = useRef(null);
+    const deliveryMarker = useRef(null);
+    const driverMarker = useRef(null);
+
+    useImperativeHandle(ref, () => ({
+        zoomIn: () => {
+            if (map.current) map.current.zoomIn();
+        },
+        zoomOut: () => {
+            if (map.current) map.current.zoomOut();
+        },
+        addRoute: (coordinates) => {
+            if (!map.current) return;
+            
+            const validCoords = coordinates.filter(coord => 
+                isValidCoordinate(coord[1], coord[0])
+            );
+            
+            if (validCoords.length > 0 && map.current.getSource('route')) {
+                map.current.getSource('route').setData({
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: validCoords
+                    }
+                });
+                
+                // ضبط الخريطة على المسار
+                const bounds = new mapboxgl.LngLatBounds();
+                validCoords.forEach(coord => bounds.extend(coord));
+                map.current.fitBounds(bounds, { padding: 50 });
+            }
+        },
+        updateDriverLocation: (lat, lng) => {
+            if (!map.current) return;
+            
+            if (driverMarker.current) {
+                driverMarker.current.remove();
+            }
+            
+            if (isValidCoordinate(lat, lng)) {
+                driverMarker.current = new mapboxgl.Marker({ color: '#4CAF50' })
+                    .setLngLat([lng, lat])
+                    .setPopup(new mapboxgl.Popup().setHTML('<strong>🚗 المندوب</strong>'))
+                    .addTo(map.current);
+            }
+        }
+    }));
+
+    useEffect(() => {
+        if (!mapContainer.current) return;
+
+        let defaultCenter = [2.1254, 13.5127];
+        
+        if (center && isValidCoordinate(center.lat, center.lng)) {
+            defaultCenter = [center.lng, center.lat];
+        }
+
+        map.current = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: defaultCenter,
+            zoom: zoom || 12,
+        });
+
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        map.current.addControl(new mapboxgl.FullscreenControl());
+
+        if (onZoomChange) {
+            map.current.on('zoomend', () => {
+                onZoomChange(map.current.getZoom());
+            });
+        }
+
+        map.current.on('load', () => {
+            // إضافة طبقة المسار
+            map.current.addSource('route', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: []
+                    }
+                }
+            });
+
+            map.current.addLayer({
+                id: 'route',
+                type: 'line',
+                source: 'route',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#3887be',
+                    'line-width': 5,
+                    'line-opacity': 0.75
+                }
+            });
+        });
+
+        return () => {
+            if (map.current) {
+                map.current.remove();
+            }
+        };
+    }, []);
+
+    // جلب مسار الطلب
+    useEffect(() => {
+        if (!orderId || !map.current) return;
+
+        const fetchOrderRoute = async () => {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/track`);
+                const data = await response.json();
+                
+                // إضافة علامات نقاط البداية والنهاية
+                if (data.pickupLocation && isValidCoordinate(data.pickupLocation.lat, data.pickupLocation.lng)) {
+                    if (pickupMarker.current) pickupMarker.current.remove();
+                    pickupMarker.current = new mapboxgl.Marker({ color: '#FF5722' })
+                        .setLngLat([data.pickupLocation.lng, data.pickupLocation.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML('<strong>📍 نقطة الاستلام</strong>'))
+                        .addTo(map.current);
+                }
+                
+                if (data.deliveryLocation && isValidCoordinate(data.deliveryLocation.lat, data.deliveryLocation.lng)) {
+                    if (deliveryMarker.current) deliveryMarker.current.remove();
+                    deliveryMarker.current = new mapboxgl.Marker({ color: '#2196F3' })
+                        .setLngLat([data.deliveryLocation.lng, data.deliveryLocation.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML('<strong>🏠 وجهة التوصيل</strong>'))
+                        .addTo(map.current);
+                }
+                
+                if (data.route && data.route.coordinates) {
+                    const validCoords = data.route.coordinates.filter(coord => 
+                        isValidCoordinate(coord[1], coord[0])
+                    );
+                    
+                    if (validCoords.length > 0 && map.current.getSource('route')) {
+                        map.current.getSource('route').setData({
+                            type: 'Feature',
+                            properties: {},
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: validCoords
+                            }
+                        });
+                        
+                        // ضبط الخريطة على المسار
+                        const bounds = new mapboxgl.LngLatBounds();
+                        validCoords.forEach(coord => bounds.extend(coord));
+                        map.current.fitBounds(bounds, { padding: 50 });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch order route:', error);
+            }
+        };
+
+        fetchOrderRoute();
+        
+        // تحديث الموقع كل 5 ثواني
+        const interval = setInterval(fetchOrderRoute, 5000);
+        
+        return () => clearInterval(interval);
+    }, [orderId]);
+
+    return (
+        <div 
+            ref={mapContainer} 
+            style={{ 
+                width: '100%', 
+                height: `${height}px`,
+                borderRadius: '8px',
+                overflow: 'hidden'
+            }} 
+        />
+    );
+});
+
+OrderTrackingMap.displayName = 'OrderTrackingMap';
+
+export default OrderTrackingMap;
+</file>
+
+<file path="src/components/Map/StoreMap.jsx">
+// src/components/Map/StoreMap.jsx - النسخة المصححة
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { getStoreCoordinates, isValidCoordinate } from '../../utils/mapHelpers';
+
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+
+const StoreMap = forwardRef(({ 
+    stores = [], 
+    userLocation, 
+    onStoreSelect, 
+    onRefresh,
+    height = 500,
+    center,
+    zoom,
+    onZoomChange 
+}, ref) => {
+    const mapContainer = useRef(null);
+    const map = useRef(null);
+    const markers = useRef([]);
+    const userMarker = useRef(null);
+
+    // ✅ استخدام الدالة المساعدة من mapHelpers
+    const getValidStores = () => {
+        return stores.filter(store => {
+            const coords = getStoreCoordinates(store);
+            return coords !== null;
+        });
+    };
+
+    useImperativeHandle(ref, () => ({
+        zoomIn: () => {
+            if (map.current) map.current.zoomIn();
+        },
+        zoomOut: () => {
+            if (map.current) map.current.zoomOut();
+        },
+        flyTo: (lng, lat) => {
+            if (map.current && isValidCoordinate(lat, lng)) {
+                map.current.flyTo({ center: [lng, lat], zoom: 14 });
+            }
+        }
+    }));
+
+    useEffect(() => {
+        if (!mapContainer.current) return;
+
+        // المركز الافتراضي - نيامي، النيجر
+        let defaultCenter = [2.1254, 13.5127];
+        
+        if (center && isValidCoordinate(center.lat, center.lng)) {
+            defaultCenter = [center.lng, center.lat];
+        } else if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
+            defaultCenter = [userLocation.lng, userLocation.lat];
+        }
+
+        map.current = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: defaultCenter,
+            zoom: zoom || 12,
+        });
+
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        map.current.addControl(new mapboxgl.FullscreenControl());
+
+        if (onZoomChange) {
+            map.current.on('zoomend', () => {
+                onZoomChange(map.current.getZoom());
+            });
+        }
+
+        return () => {
+            if (map.current) {
+                map.current.remove();
+            }
+        };
+    }, []);
+
+    // إضافة علامات المتاجر
+    useEffect(() => {
+        if (!map.current) return;
+
+        // إزالة العلامات القديمة
+        markers.current.forEach(marker => marker.remove());
+        markers.current = [];
+
+        const validStores = getValidStores();
+
+        validStores.forEach(store => {
+            const coords = getStoreCoordinates(store);
+            if (!coords) return;
+
+            const popup = new mapboxgl.Popup({ offset: 25 })
+                .setHTML(`
+                    <div style="padding: 8px; min-width: 150px; direction: rtl;">
+                        <h4 style="margin: 0 0 5px 0;">${store.name || 'متجر'}</h4>
+                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                            ${store.category || ''}
+                        </p>
+                        ${store.averageRating ? `
+                            <p style="margin: 5px 0; font-size: 12px;">
+                                ⭐ ${store.averageRating.toFixed(1)} / 5
+                            </p>
+                        ` : ''}
+                        <button 
+                            onclick="window.selectStore('${store._id}')"
+                            style="
+                                margin-top: 5px;
+                                padding: 4px 12px;
+                                background: #1976d2;
+                                color: white;
+                                border: none;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-size: 12px;
+                            "
+                        >
+                            عرض التفاصيل
+                        </button>
+                    </div>
+                `);
+
+            const marker = new mapboxgl.Marker({ color: '#FF5722' })
+                .setLngLat([coords.lng, coords.lat])
+                .setPopup(popup)
+                .addTo(map.current);
+
+            marker.getElement().addEventListener('click', () => {
+                if (onStoreSelect) onStoreSelect(store);
+            });
+
+            markers.current.push(marker);
+        });
+
+        // ربط الدالة العالمية
+        window.selectStore = (storeId) => {
+            const store = stores.find(s => s._id === storeId);
+            if (store && onStoreSelect) onStoreSelect(store);
+        };
+
+    }, [stores, onStoreSelect]);
+
+    // تحديث موقع المستخدم
+    useEffect(() => {
+        if (!map.current) return;
+        
+        // إزالة العلامة القديمة
+        if (userMarker.current) {
+            userMarker.current.remove();
+        }
+        
+        if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
+            userMarker.current = new mapboxgl.Marker({ color: '#2196F3' })
+                .setLngLat([userLocation.lng, userLocation.lat])
+                .setPopup(new mapboxgl.Popup().setHTML('<strong>📍 موقعك الحالي</strong>'))
+                .addTo(map.current);
+        }
+    }, [userLocation]);
+
+    return (
+        <div 
+            ref={mapContainer} 
+            style={{ 
+                width: '100%', 
+                height: `${height}px`,
+                borderRadius: '8px',
+                overflow: 'hidden'
+            }} 
+        />
+    );
+});
+
+StoreMap.displayName = 'StoreMap';
+
+export default StoreMap;
 </file>
 
 <file path="src/main.jsx">
@@ -9453,38 +9598,67 @@ export default function Products() {
     { title: 'منتجات مميزة', value: stats.featured || 0, icon: Star, color: '#9c27b0' },
   ];
 
-  // أعمدة الجدول
+  // أعمدة الجدول - تم إصلاحها
   const columns = [
     {
       field: 'image',
       headerName: 'الصورة',
       width: 80,
-      renderCell: (params) => (
-        <Avatar 
-          src={params.value || '/placeholder-product.jpg'} 
-          sx={{ width: 40, height: 40, borderRadius: 1 }}
-        >
-          {params.row.name?.charAt(0)}
-        </Avatar>
-      ),
+      renderCell: (params) => {
+        const imageUrl = params.row.image || '/placeholder-product.jpg';
+        return (
+          <Avatar 
+            src={imageUrl} 
+            sx={{ width: 40, height: 40, borderRadius: 1 }}
+          >
+            {params.row.name?.charAt(0) || 'P'}
+          </Avatar>
+        );
+      },
     },
-    { field: 'name', headerName: 'اسم المنتج', width: 180 },
+    { 
+      field: 'name', 
+      headerName: 'اسم المنتج', 
+      width: 180,
+      renderCell: (params) => params.row.name || 'بدون اسم'
+    },
     { 
       field: 'store', 
       headerName: 'المتجر', 
       width: 150,
-      valueGetter: (row) => row.store?.name || row.storeId,
+      renderCell: (params) => {
+        // التعامل مع两种情况: إذا كان store كائنًا أو إذا كان storeId فقط
+        if (params.row.store && typeof params.row.store === 'object') {
+          return params.row.store.name || 'غير محدد';
+        }
+        if (params.row.storeId) {
+          // إذا كان لديك storeId فقط، حاول البحث عن اسم المتجر من storesData
+          const store = storesData?.data?.find(s => s._id === params.row.storeId);
+          return store?.name || params.row.storeId || 'غير محدد';
+        }
+        return 'غير محدد';
+      }
     },
     { 
       field: 'price', 
       headerName: 'السعر', 
       width: 120,
-      valueFormatter: (value) => formatCurrency(value),
+      renderCell: (params) => formatCurrency(params.row.price || 0)
     },
     { 
       field: 'category', 
       headerName: 'التصنيف', 
       width: 120,
+      renderCell: (params) => {
+        const categoriesMap = {
+          'main': 'وجبات رئيسية',
+          'appetizer': 'مقبلات',
+          'beverage': 'مشروبات',
+          'dessert': 'حلويات',
+          'salad': 'سلطات'
+        };
+        return categoriesMap[params.row.category] || params.row.category || 'غير محدد';
+      }
     },
     {
       field: 'isAvailable',
@@ -9492,9 +9666,9 @@ export default function Products() {
       width: 80,
       renderCell: (params) => (
         <Chip
-          label={params.value ? 'نعم' : 'لا'}
+          label={params.row.isAvailable ? 'نعم' : 'لا'}
           size="small"
-          color={params.value ? 'success' : 'error'}
+          color={params.row.isAvailable ? 'success' : 'error'}
         />
       ),
     },
@@ -9503,7 +9677,7 @@ export default function Products() {
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
-        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
+        <Rating value={params.row.rating || 0} readOnly size="small" precision={0.5} />
       ),
     },
     {
@@ -9709,12 +9883,12 @@ export default function Products() {
                   src={product.image || '/placeholder-product.jpg'} 
                   sx={{ width: 50, height: 50, borderRadius: 1 }}
                 >
-                  {product.name?.charAt(0)}
+                  {product.name?.charAt(0) || 'P'}
                 </Avatar>
                 <Box flex={1}>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                     <Typography variant="subtitle2" fontWeight="bold">
-                      {product.name}
+                      {product.name || 'بدون اسم'}
                     </Typography>
                     <Chip
                       label={product.isAvailable ? 'متاح' : 'غير متاح'}
@@ -9723,14 +9897,14 @@ export default function Products() {
                     />
                   </Box>
                   <Typography variant="caption" color="textSecondary" display="block">
-                    {product.store?.name || product.storeId}
+                    {typeof product.store === 'object' ? product.store?.name : (product.storeId || 'غير محدد')}
                   </Typography>
                   <Typography variant="caption" color="textSecondary" display="block">
-                    {product.category}
+                    {product.category || 'غير محدد'}
                   </Typography>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
                     <Typography variant="body2" fontWeight="bold" color="primary">
-                      {formatCurrency(product.price)}
+                      {formatCurrency(product.price || 0)}
                     </Typography>
                     <Rating value={product.rating || 0} readOnly size="small" />
                   </Box>
@@ -9811,16 +9985,16 @@ export default function Products() {
                   src={selectedProduct.image || '/placeholder-product.jpg'}
                   sx={{ width: 120, height: 120, mx: 'auto', borderRadius: 2 }}
                 >
-                  {selectedProduct.name?.charAt(0)}
+                  {selectedProduct.name?.charAt(0) || 'P'}
                 </Avatar>
               </Grid>
               <Grid item xs={12} md={8}>
-                <Typography variant="h6">{selectedProduct.name}</Typography>
+                <Typography variant="h6">{selectedProduct.name || 'بدون اسم'}</Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
                   {selectedProduct.description || 'لا يوجد وصف'}
                 </Typography>
                 <Typography variant="body2">
-                  <strong>السعر:</strong> {formatCurrency(selectedProduct.price)}
+                  <strong>السعر:</strong> {formatCurrency(selectedProduct.price || 0)}
                 </Typography>
                 {selectedProduct.discountedPrice && (
                   <Typography variant="body2" color="error">
@@ -9828,7 +10002,7 @@ export default function Products() {
                   </Typography>
                 )}
                 <Typography variant="body2">
-                  <strong>التصنيف:</strong> {selectedProduct.category}
+                  <strong>التصنيف:</strong> {selectedProduct.category || 'غير محدد'}
                 </Typography>
                 <Typography variant="body2">
                   <strong>وقت التحضير:</strong> {selectedProduct.preparationTime || 15} دقيقة
@@ -9847,7 +10021,7 @@ export default function Products() {
       <ResponsiveDialog
         open={openInventory}
         onClose={() => setOpenInventory(false)}
-        title={`إدارة المخزون - ${selectedProduct?.name}`}
+        title={`إدارة المخزون - ${selectedProduct?.name || ''}`}
         maxWidth="sm"
       >
         {selectedProduct && (
@@ -9878,7 +10052,7 @@ export default function Products() {
         }
       >
         <Typography>
-          هل أنت متأكد من حذف المنتج "{selectedProduct?.name}"؟
+          هل أنت متأكد من حذف المنتج "{selectedProduct?.name || ''}"؟
         </Typography>
       </ResponsiveDialog>
 
@@ -9892,7 +10066,7 @@ export default function Products() {
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
-  );
+  ); 
 }
 </file>
 
@@ -11502,6 +11676,215 @@ export default function Vendors() {
 }
 </file>
 
+<file path="src/utils/mapHelpers.js">
+// src/utils/mapHelpers.js - دوال مساعدة للخرائط
+
+/**
+ * التحقق من صحة الإحداثيات
+ */
+export const isValidCoordinate = (lat, lng) => {
+  return (
+    lat !== undefined && 
+    lng !== undefined && 
+    !isNaN(lat) && 
+    !isNaN(lng) && 
+    lat !== null && 
+    lng !== null &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180
+  );
+};
+
+/**
+ * استخراج إحداثيات المتجر بأمان
+ * يدعم كلاً من:
+ * - address.latitude / address.longitude
+ * - location.coordinates (GeoJSON format)
+ * - lat / lng مباشرة
+ */
+export const getStoreCoordinates = (store) => {
+  if (!store) return null;
+  
+  try {
+    // 1. محاولة من address.latitude/longitude
+    if (store.address?.latitude && store.address?.longitude) {
+      const lat = parseFloat(store.address.latitude);
+      const lng = parseFloat(store.address.longitude);
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng };
+      }
+    }
+    
+    // 2. محاولة من location.coordinates (GeoJSON format)
+    if (store.location?.coordinates && Array.isArray(store.location.coordinates)) {
+      const coords = store.location.coordinates;
+      if (coords.length >= 2) {
+        const lng = parseFloat(coords[0]);
+        const lat = parseFloat(coords[1]);
+        if (isValidCoordinate(lat, lng)) {
+          return { lat, lng };
+        }
+      }
+    }
+    
+    // 3. محاولة من lat/lng مباشرة
+    if (store.lat && store.lng && isValidCoordinate(store.lat, store.lng)) {
+      return { 
+        lat: parseFloat(store.lat), 
+        lng: parseFloat(store.lng) 
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting store coordinates:', error);
+    return null;
+  }
+};
+
+/**
+ * استخراج إحداثيات المندوب بأمان
+ */
+export const getDriverCoordinates = (driver) => {
+  if (!driver) return null;
+  
+  try {
+    // 1. محاولة من location.coordinates (GeoJSON format)
+    if (driver.location?.coordinates && Array.isArray(driver.location.coordinates)) {
+      const coords = driver.location.coordinates;
+      if (coords.length >= 2) {
+        const lng = parseFloat(coords[0]);
+        const lat = parseFloat(coords[1]);
+        if (isValidCoordinate(lat, lng)) {
+          return { lat, lng };
+        }
+      }
+    }
+    
+    // 2. محاولة من driver.location.latitude/longitude
+    if (driver.location?.latitude && driver.location?.longitude) {
+      const lat = parseFloat(driver.location.latitude);
+      const lng = parseFloat(driver.location.longitude);
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng };
+      }
+    }
+    
+    // 3. محاولة من driverInfo.currentLocation
+    if (driver.driverInfo?.currentLocation?.coordinates) {
+      const coords = driver.driverInfo.currentLocation.coordinates;
+      if (coords.length >= 2) {
+        const lng = parseFloat(coords[0]);
+        const lat = parseFloat(coords[1]);
+        if (isValidCoordinate(lat, lng)) {
+          return { lat, lng };
+        }
+      }
+    }
+    
+    // 4. محاولة من lat/lng مباشرة
+    if (driver.lat && driver.lng && isValidCoordinate(driver.lat, driver.lng)) {
+      return { 
+        lat: parseFloat(driver.lat), 
+        lng: parseFloat(driver.lng) 
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting driver coordinates:', error);
+    return null;
+  }
+};
+
+/**
+ * استخراج إحداثيات الطلب (موقع الاستلام أو التوصيل)
+ */
+export const getOrderCoordinates = (order, type = 'delivery') => {
+  if (!order) return null;
+  
+  try {
+    let address = null;
+    
+    if (type === 'pickup') {
+      address = order.pickupAddress;
+    } else {
+      address = order.deliveryAddress;
+    }
+    
+    if (!address) return null;
+    
+    // محاولة من address.latitude/longitude
+    if (address.latitude && address.longitude) {
+      const lat = parseFloat(address.latitude);
+      const lng = parseFloat(address.longitude);
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng, address: address.addressLine };
+      }
+    }
+    
+    // محاولة من location.coordinates
+    if (address.location?.coordinates && address.location.coordinates.length >= 2) {
+      const coords = address.location.coordinates;
+      const lng = parseFloat(coords[0]);
+      const lat = parseFloat(coords[1]);
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng, address: address.addressLine };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting order coordinates:', error);
+    return null;
+  }
+};
+
+/**
+ * حساب المسافة بين نقطتين (هافرسين)
+ * @returns المسافة بالكيلومترات
+ */
+export const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371; // نصف قطر الأرض بالكيلومتر
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+/**
+ * تنسيق المسافة للعرض
+ */
+export const formatDistance = (distanceKm) => {
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)} م`;
+  }
+  return `${distanceKm.toFixed(1)} كم`;
+};
+
+/**
+ * الحصول على عنوان من الإحداثيات (عكسياً)
+ */
+export const reverseGeocode = async (lat, lng, apiKey) => {
+  try {
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${apiKey}&language=ar`
+    );
+    const data = await response.json();
+    if (data.features && data.features.length > 0) {
+      return data.features[0].place_name;
+    }
+    return null;
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return null;
+  }
+};
+</file>
+
 <file path="vite.config.js">
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -11538,7 +11921,7 @@ export default defineConfig({
 </file>
 
 <file path="src/pages/Map/index.jsx">
-import React, { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
 import { useResponsive } from '../../hooks/useResponsive';
 import {
@@ -11563,8 +11946,6 @@ import {
     Fab,
     Badge,
     Zoom,
-    Fade,
-    Skeleton,
     FormControlLabel,
     Switch,
     Tabs,
@@ -11584,16 +11965,13 @@ import {
     ZoomOut,
     FilterList,
     ClearAll,
-    VisibilityOff,
 } from '@mui/icons-material';
 import { mapService, ordersService, storesService } from '../../api';
 import DriverLocationMap from '../../components/Map/DriverLocationMap';
 import OrderTrackingMap from '../../components/Map/OrderTrackingMap';
 import StoreMap from '../../components/Map/StoreMap';
-import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
-import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 
-// تبويبات الصفحة
+// ✅ تبويبات الصفحة
 const TABS = {
     DRIVERS: 'drivers',
     ORDERS: 'orders',
@@ -11601,42 +11979,25 @@ const TABS = {
     SEARCH: 'search',
 };
 
-// ✅ مكون Wrapper لـ Tooltip يتعامل مع العناصر المعطلة
-const TooltipWrapper = forwardRef(({ title, children, disabled, ...props }, ref) => {
-    // إذا كان الزر معطلاً، نلفه بـ span لضمان عمل الـ Tooltip
-    if (disabled) {
+// ✅ مكون Tooltip آمن يتعامل مع العناصر المعطلة
+const SafeTooltip = ({ title, children, disabled, ...props }) => {
+    // إذا كان الـ Tooltip معطل أو الزر معطل، نلف الزر بـ span
+    if (disabled || (children && children.props && children.props.disabled)) {
         return (
             <Tooltip title={title} {...props}>
-                <span style={{ display: 'inline-flex' }}>
+                <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
                     {children}
                 </span>
             </Tooltip>
         );
     }
     
-    if (!children) return null;
-    
-    if (React.isValidElement(children)) {
-        const childWithRef = React.cloneElement(children, { 
-            ref: ref || children.ref 
-        });
-        return (
-            <Tooltip title={title} {...props}>
-                {childWithRef}
-            </Tooltip>
-        );
-    }
-    
     return (
         <Tooltip title={title} {...props}>
-            <span style={{ display: 'inline-flex' }}>
-                {children}
-            </span>
+            {children}
         </Tooltip>
     );
-});
-
-TooltipWrapper.displayName = 'TooltipWrapper';
+};
 
 export default function MapPage() {
     const { isMobile, isTablet, fontSize, spacing } = useResponsive();
@@ -11653,7 +12014,7 @@ export default function MapPage() {
     const [error, setError] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [updatingStores, setUpdatingStores] = useState(false);
-    const [autoRefreshInterval, setAutoRefreshInterval] = useState(10000);
+    const [autoRefreshInterval] = useState(10000);
     const [showDriverFilters, setShowDriverFilters] = useState(false);
     const [driverFilters, setDriverFilters] = useState({
         showOnlineOnly: false,
@@ -12023,18 +12384,18 @@ export default function MapPage() {
                                     <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontSize: fontSize.h3 }}>
                                         مواقع المندوبين
                                     </Typography>
-                                    <Typography variant="caption" color="textSecondary">
+                                    <Typography variant="caption" color="textSecondary" component="div">
                                         {onlineDriversCount} متصل / {offlineDriversCount} غير متصل
                                     </Typography>
                                 </Box>
                                 <Box display="flex" gap={0.5}>
-                                    <TooltipWrapper title="تحديث الخريطة">
+                                    <SafeTooltip title="تحديث الخريطة">
                                         <IconButton onClick={refreshAllData} disabled={driversLoading} size="small">
                                             <Refresh />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="الفلاتر">
+                                    <SafeTooltip title="الفلاتر">
                                         <IconButton 
                                             onClick={() => setShowDriverFilters(!showDriverFilters)}
                                             color={showDriverFilters ? 'primary' : 'default'}
@@ -12042,25 +12403,25 @@ export default function MapPage() {
                                         >
                                             <FilterList />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="تكبير">
+                                    <SafeTooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="تصغير">
+                                    <SafeTooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     
-                                    <TooltipWrapper title="موقعي">
+                                    <SafeTooltip title="موقعي">
                                         <IconButton onClick={getUserLocation} size="small">
                                             <MyLocation />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                 </Box>
                             </Box>
                             
@@ -12131,7 +12492,7 @@ export default function MapPage() {
                             {driversLoading ? (
                                 <Box>
                                     {[1, 2, 3, 4].map(i => (
-                                        <Skeleton key={i} variant="rectangular" height={72} sx={{ mb: 1, borderRadius: 1 }} />
+                                        <Box key={i} sx={{ mb: 1, height: 72, bgcolor: 'action.hover', borderRadius: 1 }} />
                                     ))}
                                 </Box>
                             ) : (
@@ -12162,8 +12523,8 @@ export default function MapPage() {
                                             </ListItemAvatar>
                                             <ListItemText
                                                 primary={
-                                                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                                        <Typography variant="body2" fontWeight="bold">
+                                                    <Box component="span" display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                                        <Typography variant="body2" fontWeight="bold" component="span">
                                                             {driver.name}
                                                         </Typography>
                                                         {driver.rating && (
@@ -12211,21 +12572,21 @@ export default function MapPage() {
                                     تتبع الطلب {selectedOrder && `#${selectedOrder._id.slice(-6)}`}
                                 </Typography>
                                 <Box display="flex" gap={0.5}>
-                                    <TooltipWrapper title="تحديث الخريطة">
+                                    <SafeTooltip title="تحديث الخريطة">
                                         <IconButton onClick={refreshAllData} size="small">
                                             <Refresh />
                                         </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تكبير">
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تصغير">
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                 </Box>
                             </Box>
                             <OrderTrackingMap
@@ -12244,7 +12605,7 @@ export default function MapPage() {
                             {ordersLoading ? (
                                 <Box>
                                     {[1, 2, 3].map(i => (
-                                        <Skeleton key={i} variant="rectangular" height={100} sx={{ mb: 1, borderRadius: 1 }} />
+                                        <Box key={i} sx={{ mb: 1, height: 100, bgcolor: 'action.hover', borderRadius: 1 }} />
                                     ))}
                                 </Box>
                             ) : (
@@ -12269,13 +12630,13 @@ export default function MapPage() {
                                         >
                                             <ListItemText
                                                 primary={
-                                                    <Typography variant="body2" fontWeight="bold">
+                                                    <Typography variant="body2" fontWeight="bold" component="span">
                                                         طلب #{order._id.slice(-6)}
                                                     </Typography>
                                                 }
                                                 secondary={
                                                     <Box component="span">
-                                                        <Typography variant="caption" display="block" color="textSecondary">
+                                                        <Typography variant="caption" display="block" color="textSecondary" component="span">
                                                             {order.store?.name || order.storeId}
                                                         </Typography>
                                                         <Chip
@@ -12314,13 +12675,13 @@ export default function MapPage() {
                                     المتاجر القريبة
                                 </Typography>
                                 <Box display="flex" gap={0.5}>
-                                    <TooltipWrapper title="تحديث الخريطة">
+                                    <SafeTooltip title="تحديث الخريطة">
                                         <IconButton onClick={refreshAllData} disabled={isStoresFetching} size="small">
                                             <Refresh />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                     {storesWithoutCoords.length > 0 && !isMobile && (
-                                        <TooltipWrapper title={`تحديث مواقع ${storesWithoutCoords.length} متجر`}>
+                                        <SafeTooltip title={`تحديث مواقع ${storesWithoutCoords.length} متجر`}>
                                             <IconButton 
                                                 onClick={handleUpdateStoresCoordinates} 
                                                 disabled={updatingStores}
@@ -12329,27 +12690,29 @@ export default function MapPage() {
                                             >
                                                 <Update />
                                             </IconButton>
-                                        </TooltipWrapper>
+                                        </SafeTooltip>
                                     )}
-                                    <TooltipWrapper title="موقعي">
-                                        <IconButton 
-                                            onClick={getUserLocation} 
-                                            disabled={loadingLocation}
-                                            size="small"
-                                        >
-                                            {loadingLocation ? <CircularProgress size={20} /> : <MyLocation />}
-                                        </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تكبير">
+                                    <SafeTooltip title="موقعي">
+                                        <span style={{ display: 'inline-flex' }}>
+                                            <IconButton 
+                                                onClick={getUserLocation} 
+                                                disabled={loadingLocation}
+                                                size="small"
+                                            >
+                                                {loadingLocation ? <CircularProgress size={20} /> : <MyLocation />}
+                                            </IconButton>
+                                        </span>
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تكبير">
                                         <IconButton onClick={handleZoomIn} size="small">
                                             <ZoomIn />
                                         </IconButton>
-                                    </TooltipWrapper>
-                                    <TooltipWrapper title="تصغير">
+                                    </SafeTooltip>
+                                    <SafeTooltip title="تصغير">
                                         <IconButton onClick={handleZoomOut} size="small">
                                             <ZoomOut />
                                         </IconButton>
-                                    </TooltipWrapper>
+                                    </SafeTooltip>
                                 </Box>
                             </Box>
                             
@@ -12393,7 +12756,7 @@ export default function MapPage() {
                             ) : storesLoading ? (
                                 <Box>
                                     {[1, 2, 3, 4].map(i => (
-                                        <Skeleton key={i} variant="rectangular" height={80} sx={{ mb: 1, borderRadius: 1 }} />
+                                        <Box key={i} sx={{ mb: 1, height: 80, bgcolor: 'action.hover', borderRadius: 1 }} />
                                     ))}
                                 </Box>
                             ) : (
@@ -12403,6 +12766,7 @@ export default function MapPage() {
                                         return (
                                             <ListItem 
                                                 key={store._id} 
+                                                component="div"
                                                 sx={{ 
                                                     borderRadius: 1, 
                                                     mb: 1,
@@ -12423,23 +12787,20 @@ export default function MapPage() {
                                                 </ListItemAvatar>
                                                 <ListItemText
                                                     primary={
-                                                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                                            <Typography variant="body2" fontWeight="bold">
+                                                        <Box component="span" display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                                            <Typography variant="body2" fontWeight="bold" component="span">
                                                                 {store.name}
                                                             </Typography>
-                                                            {!hasCoords && isMobile && (
-                                                                <VisibilityOff fontSize="small" color="warning" />
-                                                            )}
                                                         </Box>
                                                     }
                                                     secondary={
-                                                        <Box>
+                                                        <Box component="span">
                                                             <Rating 
                                                                 value={store.averageRating || 0} 
                                                                 readOnly 
                                                                 size="small" 
                                                             />
-                                                            <Typography variant="caption" display="block" color="textSecondary">
+                                                            <Typography variant="caption" display="block" color="textSecondary" component="span">
                                                                 {store.category} 
                                                                 {store.distance && ` • ${store.distance.toFixed(1)} كم`}
                                                             </Typography>
@@ -12588,7 +12949,7 @@ export default function MapPage() {
 </file>
 
 <file path="src/pages/Users/index.jsx">
-import React, { useState } from 'react'; // ✅ أضف React هنا
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Box,
@@ -12617,7 +12978,14 @@ import {
   ListItem,
   ListItemText,
   ListItemAvatar,
-  CircularProgress, // ✅ أضف هذا أيضاً
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
 } from '@mui/material';
 import {
   Add,
@@ -12634,9 +13002,7 @@ import {
   DeliveryDining,
   People,
   FilterList,
-  Close,
 } from '@mui/icons-material';
-import { DataGrid } from '@mui/x-data-grid';
 import { usersService } from '../../api';
 import UserForm from './components/UserForm';
 import UserDetails from './components/UserDetails';
@@ -12677,7 +13043,7 @@ export default function Users() {
   const queryClient = useQueryClient();
   
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 10 : 20);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -12691,15 +13057,16 @@ export default function Users() {
   const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading, refetch, isFetching } = useQuery(
-    ['users', page, pageSize, debouncedSearch, roleFilter, statusFilter],
+    ['users', page, rowsPerPage, debouncedSearch, roleFilter, statusFilter],
     () => usersService.getUsers({
       page: page + 1,
-      limit: pageSize,
+      limit: rowsPerPage,
       search: debouncedSearch || undefined,
       role: roleFilter !== 'all' ? roleFilter : undefined,
       isActive: statusFilter !== 'all' ? statusFilter === 'active' : undefined,
     }),
     {
+      keepPreviousData: true,
       onSuccess: (response) => {
         console.log('✅ Users data received:', response);
       },
@@ -12707,8 +13074,7 @@ export default function Users() {
   );
 
   const users = data?.data || [];
-  const pagination = data?.pagination || {};
-  const totalCount = pagination?.total || 0;
+  const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
   const deleteMutation = useMutation(
@@ -12757,13 +13123,130 @@ export default function Users() {
     }
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const totalUsers = stats?.total || 0;
   const activeUsers = stats?.active || 0;
   const verifiedUsers = stats?.verified || 0;
   const byRole = stats?.byRole || [];
 
-  // عرض بطاقات للهواتف
-  const renderMobileUsers = () => {
+  // ✅ عرض الجدول للشاشات المتوسطة والكبيرة
+  const renderDesktopTable = () => {
+    if (isLoading) {
+      return (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return (
+      <>
+        <TableContainer>
+          <Table size={isTablet ? "small" : "medium"}>
+            <TableHead>
+              <TableRow>
+                <TableCell>الاسم</TableCell>
+                <TableCell>رقم الهاتف</TableCell>
+                {!isTablet && <TableCell>البريد الإلكتروني</TableCell>}
+                <TableCell>الدور</TableCell>
+                <TableCell>الحالة</TableCell>
+                {!isTablet && <TableCell>تاريخ التسجيل</TableCell>}
+                <TableCell align="center">الإجراءات</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users.map((user) => {
+                const RoleIcon = roleConfig[user.role]?.icon || Person;
+                return (
+                  <TableRow key={user._id} hover>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar src={user.image} sx={{ width: 32, height: 32 }}>
+                          {user.name?.charAt(0)}
+                        </Avatar>
+                        <Typography variant="body2" fontWeight="medium">
+                          {user.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>{user.phone}</TableCell>
+                    {!isTablet && <TableCell>{user.email || '-'}</TableCell>}
+                    <TableCell>
+                      <Chip
+                        icon={<RoleIcon />}
+                        label={roleConfig[user.role]?.name || user.role}
+                        size="small"
+                        sx={{
+                          backgroundColor: roleConfig[user.role]?.bgColor,
+                          color: roleConfig[user.role]?.color,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.isActive ? 'نشط' : 'غير نشط'}
+                        size="small"
+                        color={user.isActive ? 'success' : 'error'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    {!isTablet && <TableCell>{formatDate(user.createdAt)}</TableCell>}
+                    <TableCell align="center">
+                      <Box display="flex" justifyContent="center" gap={0.5}>
+                        <Tooltip title="عرض التفاصيل">
+                          <IconButton size="small" onClick={() => handleViewDetails(user)}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="تعديل">
+                          <IconButton size="small" onClick={() => handleEdit(user)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={user.isActive ? 'تعطيل' : 'تفعيل'}>
+                          <IconButton size="small" onClick={() => handleToggleStatus(user)}>
+                            {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="حذف">
+                          <IconButton size="small" onClick={() => handleDelete(user)} color="error">
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        
+        <TablePagination
+          rowsPerPageOptions={[10, 20, 50, 100]}
+          component="div"
+          count={totalCount}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="عدد الصفوف في الصفحة:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} من ${count}`}
+        />
+      </>
+    );
+  };
+
+  // ✅ عرض البطاقات للهواتف (مع أزرار الإجراءات)
+  const renderMobileCards = () => {
     if (isLoading) {
       return (
         <Box textAlign="center" py={4}>
@@ -12772,12 +13255,20 @@ export default function Users() {
       );
     }
 
+    if (users.length === 0) {
+      return (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          لا توجد مستخدمين
+        </Alert>
+      );
+    }
+
     return (
-      <List sx={{ width: '100%' }}>
+      <List sx={{ width: '100%', p: 0 }}>
         {users.map((user) => {
           const RoleIcon = roleConfig[user.role]?.icon || Person;
           return (
-            <Card key={user._id} sx={{ mb: 1.5, p: 1.5 }}>
+            <Card key={user._id} sx={{ mb: 2, p: 1.5 }}>
               <Box display="flex" alignItems="center" gap={2}>
                 <Avatar src={user.image} sx={{ width: 48, height: 48 }}>
                   {user.name?.charAt(0)}
@@ -12815,21 +13306,72 @@ export default function Users() {
                     />
                   </Box>
                 </Box>
-                <Box>
-                  <IconButton size="small" onClick={() => handleViewDetails(user)}>
-                    <Visibility fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleEdit(user)}>
-                    <Edit fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleToggleStatus(user)}>
-                    {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
-                  </IconButton>
+              </Box>
+              
+              {/* ✅ أزرار الإجراءات - في صف منفصل للهواتف */}
+              <Box 
+                display="flex" 
+                justifyContent="space-between" 
+                alignItems="center" 
+                mt={2} 
+                pt={1} 
+                borderTop="1px solid" 
+                borderColor="divider"
+              >
+                <Box display="flex" gap={0.5}>
+                  <Tooltip title="عرض التفاصيل">
+                    <IconButton size="small" onClick={() => handleViewDetails(user)}>
+                      <Visibility fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="تعديل">
+                    <IconButton size="small" onClick={() => handleEdit(user)}>
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={user.isActive ? 'تعطيل' : 'تفعيل'}>
+                    <IconButton size="small" onClick={() => handleToggleStatus(user)}>
+                      {user.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="حذف">
+                    <IconButton size="small" onClick={() => handleDelete(user)} color="error">
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
+                <Typography variant="caption" color="textSecondary">
+                  {formatDate(user.createdAt, 'yyyy-MM-dd')}
+                </Typography>
               </Box>
             </Card>
           );
         })}
+        
+        {/* ✅ ترقيم الصفحات للهواتف */}
+        {totalCount > rowsPerPage && (
+          <Box display="flex" justifyContent="center" alignItems="center" mt={2} gap={2}>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 0}
+              size="small"
+            >
+              السابق
+            </Button>
+            <Typography variant="body2">
+              صفحة {page + 1} من {Math.ceil(totalCount / rowsPerPage)}
+            </Typography>
+            <Button
+              variant="outlined"
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * rowsPerPage >= totalCount}
+              size="small"
+            >
+              التالي
+            </Button>
+          </Box>
+        )}
       </List>
     );
   };
@@ -12854,7 +13396,7 @@ export default function Users() {
                     إجمالي المستخدمين
                   </Typography>
                   <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold">
-                    {totalUsers}
+                    {totalUsers.toLocaleString()}
                   </Typography>
                 </Box>
                 <People sx={{ fontSize: { xs: 32, sm: 48 }, color: '#1976d2', opacity: 0.5 }} />
@@ -12871,7 +13413,7 @@ export default function Users() {
                     المستخدمين النشطين
                   </Typography>
                   <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="success.main">
-                    {activeUsers}
+                    {activeUsers.toLocaleString()}
                   </Typography>
                 </Box>
                 <CheckCircle sx={{ fontSize: { xs: 32, sm: 48 }, color: '#4caf50', opacity: 0.5 }} />
@@ -12888,7 +13430,7 @@ export default function Users() {
                     المستخدمين الموثقين
                   </Typography>
                   <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="warning.main">
-                    {verifiedUsers}
+                    {verifiedUsers.toLocaleString()}
                   </Typography>
                 </Box>
                 <AdminPanelSettings sx={{ fontSize: { xs: 32, sm: 48 }, color: '#ff9800', opacity: 0.5 }} />
@@ -12929,7 +13471,7 @@ export default function Users() {
                 onClick={() => setShowFilters(!showFilters)}
                 size="small"
               >
-                فلتر
+                {showFilters ? 'إخفاء الفلتر' : 'فلتر'}
               </Button>
             )}
             <Button
@@ -13028,60 +13570,7 @@ export default function Users() {
         </Collapse>
 
         {/* عرض حسب نوع الجهاز */}
-        {isMobile ? (
-          renderMobileUsers()
-        ) : (
-          <DataGrid
-            rows={users}
-            columns={[
-              { field: 'name', headerName: 'الاسم', width: 180 },
-              { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
-              { field: 'email', headerName: 'البريد الإلكتروني', width: 200 },
-              { field: 'role', headerName: 'الدور', width: 120 },
-              { field: 'isActive', headerName: 'الحالة', width: 100 },
-              { field: 'createdAt', headerName: 'تاريخ التسجيل', width: 180 },
-              { field: 'actions', headerName: 'الإجراءات', width: 200 },
-            ]}
-            loading={isLoading}
-            rowCount={totalCount}
-            paginationMode="server"
-            page={page}
-            pageSize={pageSize}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => setPageSize(newSize)}
-            rowsPerPageOptions={[10, 20, 50, 100]}
-            autoHeight
-            disableSelectionOnClick
-            getRowId={(row) => row._id}
-          />
-        )}
-
-        {/* ترقيم الصفحات للهواتف */}
-        {isMobile && totalCount > pageSize && (
-          <Box display="flex" justifyContent="center" mt={2}>
-            <Button
-              variant="outlined"
-              onClick={() => setPage(page - 1)}
-              disabled={page === 0}
-              size="small"
-              sx={{ mx: 0.5 }}
-            >
-              السابق
-            </Button>
-            <Typography variant="body2" sx={{ mx: 1, alignSelf: 'center' }}>
-              صفحة {page + 1} من {Math.ceil(totalCount / pageSize)}
-            </Typography>
-            <Button
-              variant="outlined"
-              onClick={() => setPage(page + 1)}
-              disabled={(page + 1) * pageSize >= totalCount}
-              size="small"
-              sx={{ mx: 0.5 }}
-            >
-              التالي
-            </Button>
-          </Box>
-        )}
+        {isMobile ? renderMobileCards() : renderDesktopTable()}
       </Paper>
 
       {/* نموذج إضافة/تعديل مستخدم */}
@@ -13119,13 +13608,26 @@ export default function Users() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">حذف</Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">
+            حذف
+          </Button>
         </DialogActions>
       </Dialog>
 
       {/* إشعارات */}
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </Box>
   );

@@ -14,16 +14,18 @@ import { driversService } from '../../../api';
 import { formatDate, formatCurrency } from '../../../utils/formatters';
 
 export default function DriverDetails({ driver }) {
+  // ✅ FIXED: استخدام driver._id بدلاً من driver.id
   const { data: stats } = useQuery(
-    ['driver-stats', driver.id],
-    () => driversService.getDriverStats(driver.id),
-    { enabled: !!driver.id }
+    ['driver-stats', driver._id],
+    () => driversService.getDriverStats(driver._id),
+    { enabled: !!driver._id }
   );
   
+  // ✅ FIXED: استخدام driver._id بدلاً من driver.id
   const { data: orders } = useQuery(
-    ['driver-orders', driver.id],
-    () => driversService.getDriverOrders(driver.id, { limit: 5 }),
-    { enabled: !!driver.id }
+    ['driver-orders', driver._id],
+    () => driversService.getDriverOrders(driver._id, { limit: 5 }),
+    { enabled: !!driver._id }
   );
   
   const statsData = stats?.data || {};
@@ -124,10 +126,10 @@ export default function DriverDetails({ driver }) {
           <Typography color="textSecondary">لا توجد طلبات سابقة</Typography>
         ) : (
           recentOrders.map((order) => (
-            <Box key={order.id} sx={{ mb: 2 }}>
+            <Box key={order._id} sx={{ mb: 2 }}>
               <Box display="flex" justifyContent="space-between">
                 <Typography variant="body2">
-                  <strong>طلب #{order.id}</strong>
+                  <strong>طلب #{order._id?.slice(-6)}</strong>
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
                   {formatDate(order.createdAt)}

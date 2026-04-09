@@ -58,7 +58,7 @@ export default function AssignDriverModal({ open, onClose, orderId, onSuccess })
   
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>تعيين مندوب للطلب #{orderId}</DialogTitle>
+      <DialogTitle>تعيين مندوب للطلب #{orderId?.slice(-6)}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -80,7 +80,8 @@ export default function AssignDriverModal({ open, onClose, orderId, onSuccess })
             margin="normal"
             SelectProps={{
               renderValue: (selected) => {
-                const driver = availableDrivers.find(d => d.id === selected);
+                // ✅ FIXED: استخدام driver._id بدلاً من driver.id
+                const driver = availableDrivers.find(d => d._id === selected);
                 return driver ? (
                   <Box display="flex" alignItems="center" gap={1}>
                     <Avatar src={driver.avatar} sx={{ width: 24, height: 24 }}>
@@ -93,7 +94,8 @@ export default function AssignDriverModal({ open, onClose, orderId, onSuccess })
             }}
           >
             {availableDrivers.map((driver) => (
-              <MenuItem key={driver.id} value={driver.id}>
+              // ✅ FIXED: استخدام driver._id بدلاً من driver.id
+              <MenuItem key={driver._id} value={driver._id}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <Avatar src={driver.avatar} sx={{ width: 32, height: 32 }}>
                     {driver.name?.charAt(0)}

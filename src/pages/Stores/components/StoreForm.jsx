@@ -21,6 +21,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Avatar,
+  Badge,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -30,6 +32,9 @@ import {
   DeliveryDining as DeliveryIcon,
   Schedule as ScheduleIcon,
   Map as MapIcon,
+  CloudUpload as CloudUploadIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { storesService } from '../../../api';
 
@@ -104,7 +109,46 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
     delivery: false,
     hours: false,
   });
+  
+  // ✅ FIXED: إضافة states لرفع الملفات
+  const [logoFile, setLogoFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(store?.logo || null);
+  const [coverPreview, setCoverPreview] = useState(store?.coverImage || null);
+  
   const isEdit = !!store;
+
+  // ✅ FIXED: دالة معالجة رفع الشعار
+  const handleLogoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setLogoFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setLogoPreview(previewUrl);
+    }
+  };
+
+  // ✅ FIXED: دالة معالجة رفع صورة الغلاف
+  const handleCoverChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setCoverFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setCoverPreview(previewUrl);
+    }
+  };
+
+  // ✅ FIXED: دالة إزالة الشعار
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(store?.logo || null);
+  };
+
+  // ✅ FIXED: دالة إزالة صورة الغلاف
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(store?.coverImage || null);
+  };
 
   // دالة لجلب الموقع الحالي للمستخدم
   const getCurrentLocation = () => {
@@ -184,7 +228,6 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
       },
     },
     validationSchema,
-    // في دالة onSubmit الخاصة بـ StoreForm
     onSubmit: async (values) => {
       setLoading(true);
       setError('');
@@ -192,45 +235,82 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
       try {
         const formData = new FormData();
 
-        // إضافة الحقول الأساسية
-        Object.keys(values).forEach(key => {
-          if (key === 'address') {
-            const addressString = JSON.stringify(values.address);
-            console.log('📦 Address JSON:', addressString);
-            formData.append('address', addressString);
-          }
-          else if (key === 'deliveryInfo') {
-            const deliveryString = JSON.stringify(values.deliveryInfo);
-            console.log('📦 Delivery JSON:', deliveryString);
-            formData.append('deliveryInfo', deliveryString);
-          }
-          else if (key === 'openingHours') {
-            const hoursString = JSON.stringify(values.openingHours);
-            console.log('📦 Opening Hours JSON:', hoursString);
-            formData.append('openingHours', hoursString);
-          }
-          else if (key === 'tags') {
-            const tagsString = values.tags.join(',');
-            console.log('📦 Tags:', tagsString);
-            formData.append('tags', tagsString);
-          }
-          else if (key !== 'logo' && key !== 'coverImage') {
-            console.log(`📦 ${key}:`, values[key]);
-            formData.append(key, values[key]);
-          }
-        });
-
-        // تسجيل جميع البيانات التي تم إضافتها إلى FormData
-        console.log('📦 FormData entries:');
-        for (let pair of formData.entries()) {
-          console.log(pair[0], '=', pair[1]);
+        // ✅ FIXED: إضافة الحقول الأساسية مع التحويل إلى JSON
+        // اسم المتجر
+        formData.append('name', values.name);
+        
+        // الوصف
+        formData.append('description', values.description);
+        
+        // التصنيف
+        formData.append('category', values.category);
+        
+        // رقم الهاتف
+        formData.append('phone', values.phone);
+        
+        // البريد الإلكتروني (اختياري)
+        if (values.email) {
+          formData.append('email', values.email);
+        }
+        
+        // الموقع الإلكتروني (اختياري)
+        if (values.website) {
+          formData.append('website', values.website);
+        }
+        
+        // حالة المتجر
+        formData.append('isOpen', values.isOpen);
+        
+        // ✅ تحويل address إلى JSON string
+        const addressString = JSON.stringify(values.address);
+        console.log('📦 Address JSON:', addressString);
+        formData.append('address', addressString);
+        
+        // ✅ تحويل deliveryInfo إلى JSON string
+        const deliveryString = JSON.stringify(values.deliveryInfo);
+        console.log('📦 Delivery JSON:', deliveryString);
+        formData.append('deliveryInfo', deliveryString);
+        
+        // ✅ تحويل openingHours إلى JSON string
+        const hoursString = JSON.stringify(values.openingHours);
+        console.log('📦 Opening Hours JSON:', hoursString);
+        formData.append('openingHours', hoursString);
+        
+        // ✅ تحويل tags إلى string مفصول بفواصل
+        if (values.tags && values.tags.length > 0) {
+          const tagsString = values.tags.join(',');
+          console.log('📦 Tags:', tagsString);
+          formData.append('tags', tagsString);
+        }
+        
+        // ✅ FIXED: إضافة الصور إذا وجدت
+        if (logoFile) {
+          console.log('📦 Adding logo file:', logoFile.name);
+          formData.append('logo', logoFile);
+        }
+        
+        if (coverFile) {
+          console.log('📦 Adding cover image file:', coverFile.name);
+          formData.append('coverImage', coverFile);
         }
 
+        // تسجيل جميع البيانات التي تم إضافتها إلى FormData للـ debugging
+        console.log('📦 FormData entries:');
+        for (let pair of formData.entries()) {
+          if (pair[0].includes('File') || pair[1] instanceof File) {
+            console.log(pair[0], '=', pair[1].name, '(File)');
+          } else {
+            console.log(pair[0], '=', pair[1]);
+          }
+        }
+
+        // إرسال البيانات
         if (isEdit) {
           await storesService.updateStore(store._id, formData);
         } else {
           await storesService.createStore(formData);
         }
+        
         onSuccess();
       } catch (err) {
         console.error('❌ Store form error:', err);
@@ -245,15 +325,134 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
   return (
     <form onSubmit={formik.handleSubmit}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
       <Grid container spacing={2}>
-        {/* المعلومات الأساسية */}
+        {/* ✅ FIXED: قسم الصور */}
         <Grid item xs={12}>
           <Typography variant="h6" sx={{ mb: 2 }}>
+            صور المتجر
+          </Typography>
+        </Grid>
+
+        {/* شعار المتجر */}
+        <Grid item xs={12} sm={6}>
+          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              شعار المتجر
+            </Typography>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                badgeContent={
+                  logoPreview && !logoFile && !store?.logo ? null : (
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveLogo}
+                      sx={{
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }
+              >
+                <Avatar
+                  src={logoPreview}
+                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
+                  variant="rounded"
+                >
+                  {!logoPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
+                </Avatar>
+              </Badge>
+            </Box>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              رفع شعار
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleLogoChange}
+              />
+            </Button>
+            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+              PNG, JPG, JPEG (Max 2MB)
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* صورة الغلاف */}
+        <Grid item xs={12} sm={6}>
+          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              صورة الغلاف
+            </Typography>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                badgeContent={
+                  coverPreview && !coverFile && !store?.coverImage ? null : (
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveCover}
+                      sx={{
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }
+              >
+                <Avatar
+                  src={coverPreview}
+                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
+                  variant="rounded"
+                >
+                  {!coverPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
+                </Avatar>
+              </Badge>
+            </Box>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              رفع غلاف
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleCoverChange}
+              />
+            </Button>
+            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+              PNG, JPG, JPEG (Max 5MB)
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* المعلومات الأساسية */}
+        <Grid item xs={12}>
+          <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>
             المعلومات الأساسية
           </Typography>
         </Grid>
