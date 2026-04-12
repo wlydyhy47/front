@@ -1,3 +1,5 @@
+// src/components/Common/ResponsiveFilters.jsx - نسخة مصححة
+
 import { useState } from 'react';
 import { 
   Box, 
@@ -11,20 +13,14 @@ import {
   Typography,
 } from '@mui/material';
 import { FilterList, Close } from '@mui/icons-material';
+import { memo } from 'react'; // ✅ استيراد memo من react
 
-/**
- * مكون فلاتر متجاوب - يعرض الفلاتر في صف على الشاشات الكبيرة وفي قائمة قابلة للطي على الهواتف
- * 
- * @param {ReactNode} children - محتوى الفلاتر (عادة Grid containing TextField components)
- * @param {Function} onReset - دالة لإعادة تعيين الفلاتر
- * @param {string} title - عنوان الفلاتر (اختياري)
- */
-export default function ResponsiveFilters({ 
+const ResponsiveFilters = memo(({ 
   children, 
   onReset, 
   title = 'الفلاتر',
   showResetButton = true,
-}) {
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [showFilters, setShowFilters] = useState(false);
@@ -89,4 +85,8 @@ export default function ResponsiveFilters({
       </Grid>
     </Box>
   );
-}
+});
+
+ResponsiveFilters.displayName = 'ResponsiveFilters';
+
+export default ResponsiveFilters;

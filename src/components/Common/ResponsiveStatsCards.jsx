@@ -1,20 +1,15 @@
-import { Grid, Card, CardContent, Typography, Box, useTheme, useMediaQuery } from '@mui/material';
+// src/components/Common/ResponsiveStatsCards.jsx - نسخة مصححة
 
-/**
- * مكون بطاقات إحصائيات متجاوب
- * 
- * @param {Array} cards - مصفوفة البطاقات [{ title, value, icon, color, subtext }]
- * @param {number} columnsDesktop - عدد الأعمدة على الشاشات الكبيرة (افتراضي: 4)
- * @param {number} columnsTablet - عدد الأعمدة على الأجهزة اللوحية (افتراضي: 2)
- * @param {number} columnsMobile - عدد الأعمدة على الهواتف (افتراضي: 2)
- */
-export default function ResponsiveStatsCards({ 
+import { Grid, Card, CardContent, Typography, Box, useTheme, useMediaQuery } from '@mui/material';
+import { memo } from 'react'; // ✅ استيراد memo من react
+
+const ResponsiveStatsCards = memo(({ 
   cards = [], 
   columnsDesktop = 4, 
   columnsTablet = 2, 
   columnsMobile = 2,
   spacing = 3,
-}) {
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
@@ -82,4 +77,8 @@ export default function ResponsiveStatsCards({
       ))}
     </Grid>
   );
-}
+});
+
+ResponsiveStatsCards.displayName = 'ResponsiveStatsCards';
+
+export default ResponsiveStatsCards;

@@ -1,3 +1,5 @@
+// src/components/Common/ResponsiveTable.jsx - تحسين معالجة الخلايا
+
 import { 
   Table, 
   TableBody, 
@@ -9,30 +11,19 @@ import {
   Box, 
   Typography, 
   Card,
-  Chip,
-  IconButton,
   useTheme,
-  useMediaQuery 
+  useMediaQuery,
 } from '@mui/material';
-import { Visibility } from '@mui/icons-material';
+import { memo } from 'react';
 
-/**
- * مكون جدول متجاوب - يعرض كجدول على الشاشات الكبيرة وكبطاقات على الهواتف
- * 
- * @param {Array} data - مصفوفة البيانات
- * @param {Array} columns - أعمدة الجدول
- * @param {Function} onRowClick - دالة عند النقر على صف (اختياري)
- * @param {Function} renderMobileCard - دالة لتخصيص عرض البطاقة على الهواتف (اختياري)
- * @param {string} emptyMessage - رسالة عند عدم وجود بيانات
- */
-export default function ResponsiveTable({ 
+const ResponsiveTable = memo(({ 
   data = [], 
   columns = [], 
   onRowClick, 
   renderMobileCard,
   emptyMessage = 'لا توجد بيانات',
   loading = false,
-}) {
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
@@ -55,13 +46,60 @@ export default function ResponsiveTable({
     );
   }
 
+  // ✅ دالة مساعدة للحصول على id
+  const getItemId = (item, index) => {
+    return item._id || item.id || `item-${index}`;
+  };
+
+  // ✅ دالة مساعدة لعرض قيمة الخلية بشكل آمن
+  const renderCellValue = (column, row) => {
+    // إذا كان هناك renderCell مخصص
+    if (column.renderCell) {
+      return column.renderCell({ row, value: row[column.field] });
+    }
+    
+    // إذا كان هناك valueGetter
+    if (column.valueGetter) {
+      const value = column.valueGetter(row);
+      // التأكد من أن القيمة ليست كائن
+      if (typeof value === 'object' && value !== null) {
+        console.warn(`Column ${column.field} returned an object:`, value);
+        return JSON.stringify(value);
+      }
+      return value !== undefined && value !== null ? value : '-';
+    }
+    
+    // الحصول على القيمة مباشرة
+    let value = row[column.field];
+    
+    // التأكد من أن القيمة ليست كائن
+    if (typeof value === 'object' && value !== null) {
+      console.warn(`Field ${column.field} contains an object:`, value);
+      // محاولة استخراج قيمة من الكائن
+      if (value.name) return value.name;
+      if (value.label) return value.label;
+      if (value.id) return value.id;
+      return JSON.stringify(value);
+    }
+    
+    // استخدام valueFormatter إذا وجد
+    if (column.valueFormatter) {
+      return column.valueFormatter(value);
+    }
+    
+    return value !== undefined && value !== null ? value : '-';
+  };
+
   // عرض كبطاقات على الهواتف
   if (isMobile) {
-    // إذا كان هناك دالة مخصصة لعرض البطاقات
     if (renderMobileCard) {
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {data.map((item, index) => renderMobileCard(item, index))}
+          {data.map((item, index) => (
+            <div key={getItemId(item, index)}>
+              {renderMobileCard(item, index)}
+            </div>
+          ))}
         </Box>
       );
     }
@@ -71,7 +109,7 @@ export default function ResponsiveTable({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {data.map((item, index) => (
           <Card 
-            key={item.id || index} 
+            key={getItemId(item, index)} 
             sx={{ 
               p: 1.5, 
               cursor: onRowClick ? 'pointer' : 'default',
@@ -80,8 +118,8 @@ export default function ResponsiveTable({
             onClick={() => onRowClick && onRowClick(item)}
           >
             {columns.map((column) => {
-              const value = column.valueGetter ? column.valueGetter(item) : item[column.field];
               if (column.hideOnMobile) return null;
+              const displayValue = renderCellValue(column, item);
               
               return (
                 <Box key={column.field} display="flex" justifyContent="space-between" mb={1}>
@@ -89,10 +127,10 @@ export default function ResponsiveTable({
                     {column.headerName}:
                   </Typography>
                   <Box>
-                    {column.renderCell ? column.renderCell({ row: item, value }) : (
-                      <Typography variant="body2">
-                        {value || '-'}
-                      </Typography>
+                    {typeof displayValue === 'string' || typeof displayValue === 'number' ? (
+                      <Typography variant="body2">{displayValue}</Typography>
+                    ) : (
+                      displayValue
                     )}
                   </Box>
                 </Box>
@@ -130,7 +168,7 @@ export default function ResponsiveTable({
         <TableBody>
           {data.map((item, index) => (
             <TableRow 
-              key={item.id || index}
+              key={getItemId(item, index)}
               hover={!!onRowClick}
               onClick={() => onRowClick && onRowClick(item)}
               sx={{ 
@@ -141,9 +179,7 @@ export default function ResponsiveTable({
               {columns.map((column) => (
                 !column.hideOnDesktop && (
                   <TableCell key={column.field} align={column.align || 'left'}>
-                    {column.renderCell ? column.renderCell({ row: item, value: item[column.field] }) : (
-                      column.valueFormatter ? column.valueFormatter(item[column.field]) : (item[column.field] || '-')
-                    )}
+                    {renderCellValue(column, item)}
                   </TableCell>
                 )
               ))}
@@ -153,4 +189,8 @@ export default function ResponsiveTable({
       </Table>
     </TableContainer>
   );
-}
+});
+
+ResponsiveTable.displayName = 'ResponsiveTable';
+
+export default ResponsiveTable;

@@ -1,4 +1,7 @@
+// src/components/Common/ResponsiveDialog.jsx - نسخة مصححة
+
 import { Dialog, DialogTitle, DialogContent, DialogActions, useTheme, useMediaQuery } from '@mui/material';
+import { memo } from 'react'; // ✅ استيراد memo من react
 
 /**
  * مكون حوار متجاوب - يتكيف مع حجم الشاشة
@@ -11,7 +14,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, useTheme, useMediaQu
  * @param {string} maxWidth - أقصى عرض (xs, sm, md, lg, xl)
  * @param {boolean} fullScreenOnMobile - عرض كامل الشاشة على الهواتف
  */
-export default function ResponsiveDialog({
+const ResponsiveDialog = memo(({
   open,
   onClose,
   title,
@@ -19,7 +22,7 @@ export default function ResponsiveDialog({
   actions,
   maxWidth = 'sm',
   fullScreenOnMobile = true,
-}) {
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const fullScreen = isMobile && fullScreenOnMobile;
@@ -55,4 +58,8 @@ export default function ResponsiveDialog({
       )}
     </Dialog>
   );
-}
+});
+
+ResponsiveDialog.displayName = 'ResponsiveDialog';
+
+export default ResponsiveDialog;

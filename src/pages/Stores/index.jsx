@@ -1,4 +1,6 @@
-import { useState } from 'react';
+// src/pages/Stores/index.jsx - نسخة مصححة بالكامل
+
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Box,
@@ -37,6 +39,17 @@ import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 import { useResponsive } from '../../hooks/useResponsive';
 import StoreForm from './components/StoreForm';
 import { formatDate } from '../../utils/formatters';
+import { getId, handleError } from '../../utils/helpers';
+
+const categories = [
+  { value: 'all', label: 'الكل' },
+  { value: 'restaurant', label: 'مطعم' },
+  { value: 'cafe', label: 'مقهى' },
+  { value: 'fast_food', label: 'وجبات سريعة' },
+  { value: 'bakery', label: 'مخبز' },
+  { value: 'grocery', label: 'بقالة' },
+  { value: 'pharmacy', label: 'صيدلية' },
+];
 
 export default function Stores() {
   const { isMobile, fontSize, spacing } = useResponsive();
@@ -64,7 +77,17 @@ export default function Stores() {
       search: filters.search || undefined,
       category: filters.category !== 'all' ? filters.category : undefined,
       isOpen: filters.status !== 'all' ? filters.status === 'open' : undefined,
-    })
+    }),
+    {
+      keepPreviousData: true,
+      onError: (error) => {
+        setSnackbar({ 
+          open: true, 
+          message: handleError(error, 'فشل تحميل بيانات المتاجر'), 
+          severity: 'error' 
+        });
+      }
+    }
   );
 
   const stores = data?.data || [];
@@ -80,6 +103,9 @@ export default function Stores() {
         setOpenDeleteDialog(false);
         setSnackbar({ open: true, message: 'تم حذف المتجر بنجاح', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل حذف المتجر'), severity: 'error' });
+      },
     }
   );
 
@@ -90,6 +116,9 @@ export default function Stores() {
       onSuccess: () => {
         queryClient.invalidateQueries('stores');
         setSnackbar({ open: true, message: 'تم توثيق المتجر بنجاح', severity: 'success' });
+      },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل توثيق المتجر'), severity: 'error' });
       },
     }
   );
@@ -102,17 +131,69 @@ export default function Stores() {
         queryClient.invalidateQueries('stores');
         setSnackbar({ open: true, message: 'تم تغيير حالة المتجر', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل تغيير حالة المتجر'), severity: 'error' });
+      },
     }
   );
 
-  const statsCards = [
-    { title: 'إجمالي المتاجر', value: stats.total || totalCount, icon: Storefront, color: '#2196f3' },
-    { title: 'متاجر نشطة', value: stats.active || stores.filter(s => s.isOpen).length, icon: ToggleOn, color: '#4caf50' },
-    { title: 'متاجر موثقة', value: stats.verified || stores.filter(s => s.isVerified).length, icon: Verified, color: '#ff9800' },
-    { title: 'متوسط التقييم', value: stats.avgRating || '4.5', icon: Rating, color: '#9c27b0' },
-  ];
+  // ✅ دوال المعالجة
+  const handleViewDetails = useCallback((store) => {
+    setSelectedStore(store);
+    setOpenDetails(true);
+  }, []);
 
-  const columns = [
+  const handleEdit = useCallback((store) => {
+    setSelectedStore(store);
+    setOpenForm(true);
+  }, []);
+
+  const handleDelete = useCallback((store) => {
+    setSelectedStore(store);
+    setOpenDeleteDialog(true);
+  }, []);
+
+  const handleVerify = useCallback((store) => {
+    verifyMutation.mutate(getId(store));
+  }, [verifyMutation]);
+
+  const handleToggleStatus = useCallback((store) => {
+    toggleStatusMutation.mutate(getId(store));
+  }, [toggleStatusMutation]);
+
+  const confirmDelete = useCallback(() => {
+    if (selectedStore) {
+      deleteMutation.mutate(getId(selectedStore));
+    }
+  }, [selectedStore, deleteMutation]);
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      category: 'all',
+      status: 'all',
+    });
+    setPage(0);
+  }, []);
+
+  // ✅ إحصائيات سريعة
+  const statsCards = useMemo(() => {
+    const activeStores = stores.filter(s => s.isOpen).length;
+    const verifiedStores = stores.filter(s => s.isVerified).length;
+    const avgRating = stores.length > 0 
+      ? (stores.reduce((sum, s) => sum + (s.rating || 0), 0) / stores.length).toFixed(1)
+      : '0';
+    
+    return [
+      { title: 'إجمالي المتاجر', value: totalCount, icon: Storefront, color: '#2196f3' },
+      { title: 'متاجر نشطة', value: activeStores, icon: ToggleOn, color: '#4caf50' },
+      { title: 'متاجر موثقة', value: verifiedStores, icon: Verified, color: '#ff9800' },
+      { title: 'متوسط التقييم', value: avgRating, icon: Rating, color: '#9c27b0' },
+    ];
+  }, [stores, totalCount]);
+
+  // ✅ أعمدة الجدول
+  const columns = useMemo(() => [
     {
       field: 'logo',
       headerName: 'الشعار',
@@ -152,82 +233,54 @@ export default function Stores() {
       headerName: 'موثق',
       width: 80,
       renderCell: (params) => (
-        params.value ? <Verified color="primary" /> : <Chip label="غير موثق" size="small" />
+        params.value ? <Verified color="primary" /> : <Chip label="غير موثق" size="small" variant="outlined" />
       ),
     },
     {
       field: 'actions',
       headerName: 'الإجراءات',
-      width: 180,
+      width: 200,
       hideOnDesktop: false,
-      renderCell: (params) => (
-        <Box>
-          <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" onClick={() => {
-              setSelectedStore(params.row);
-              setOpenDetails(true);
-            }}>
-              <Visibility fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="تعديل">
-            <IconButton size="small" onClick={() => {
-              setSelectedStore(params.row);
-              setOpenForm(true);
-            }}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          {!params.row.isVerified && (
-            <Tooltip title="توثيق">
-              <IconButton size="small" onClick={() => verifyMutation.mutate(params.row._id)} color="primary">
-                <Verified fontSize="small" />
+      renderCell: (params) => {
+        const store = params.row;
+        return (
+          <Box display="flex" gap={0.5}>
+            <Tooltip title="عرض التفاصيل">
+              <IconButton size="small" onClick={() => handleViewDetails(store)}>
+                <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-          )}
-          <Tooltip title={params.row.isOpen ? 'إغلاق' : 'فتح'}>
-            <IconButton size="small" onClick={() => toggleStatusMutation.mutate(params.row._id)}>
-              {params.row.isOpen ? <ToggleOff fontSize="small" color="error" /> : <ToggleOn fontSize="small" color="success" />}
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="حذف">
-            <IconButton size="small" onClick={() => {
-              setSelectedStore(params.row);
-              setOpenDeleteDialog(true);
-            }} color="error">
-              <Delete fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+            <Tooltip title="تعديل">
+              <IconButton size="small" onClick={() => handleEdit(store)}>
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {!store.isVerified && (
+              <Tooltip title="توثيق">
+                <IconButton size="small" onClick={() => handleVerify(store)} color="primary">
+                  <Verified fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={store.isOpen ? 'إغلاق' : 'فتح'}>
+              <IconButton size="small" onClick={() => handleToggleStatus(store)}>
+                {store.isOpen ? <ToggleOff fontSize="small" color="error" /> : <ToggleOn fontSize="small" color="success" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="حذف">
+              <IconButton size="small" onClick={() => handleDelete(store)} color="error">
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
-  ];
-
-  const categories = [
-    { value: 'all', label: 'الكل' },
-    { value: 'restaurant', label: 'مطعم' },
-    { value: 'cafe', label: 'مقهى' },
-    { value: 'fast_food', label: 'وجبات سريعة' },
-    { value: 'bakery', label: 'مخبز' },
-    { value: 'grocery', label: 'بقالة' },
-    { value: 'pharmacy', label: 'صيدلية' },
-  ];
-
-  const resetFilters = () => {
-    setFilters({
-      search: '',
-      category: 'all',
-      status: 'all',
-    });
-  };
+  ], [handleViewDetails, handleEdit, handleVerify, handleToggleStatus, handleDelete]);
 
   return (
     <Box sx={{ p: spacing.page }}>
-      <Typography 
-        variant="h5" 
-        fontWeight="bold" 
-        sx={{ mb: spacing.section, fontSize: fontSize.h2 }}
-      >
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
         إدارة المتاجر
       </Typography>
 
@@ -314,40 +367,70 @@ export default function Stores() {
             setOpenDetails(true);
           }}
           emptyMessage="لا توجد متاجر"
-          renderMobileCard={(store) => (
-            <Paper key={store._id} sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => {
-              setSelectedStore(store);
-              setOpenDetails(true);
-            }}>
-              <Box display="flex" gap={2}>
-                <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
-                  {store.name?.charAt(0)}
-                </Avatar>
-                <Box flex={1}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {store.name}
+          renderMobileCard={(store) => {
+            const storeId = getId(store);
+            return (
+              <Paper 
+                key={storeId} 
+                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
+                onClick={() => {
+                  setSelectedStore(store);
+                  setOpenDetails(true);
+                }}
+              >
+                <Box display="flex" gap={2}>
+                  <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
+                    {store.name?.charAt(0)}
+                  </Avatar>
+                  <Box flex={1}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {store.name}
+                      </Typography>
+                      <Chip
+                        label={store.isOpen ? 'مفتوح' : 'مغلق'}
+                        size="small"
+                        color={store.isOpen ? 'success' : 'error'}
+                      />
+                    </Box>
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      {store.phone}
                     </Typography>
-                    <Chip
-                      label={store.isOpen ? 'مفتوح' : 'مغلق'}
-                      size="small"
-                      color={store.isOpen ? 'success' : 'error'}
-                    />
-                  </Box>
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    {store.phone}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    {store.category}
-                  </Typography>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                    <Rating value={store.rating || 0} readOnly size="small" />
-                    {store.isVerified && <Verified fontSize="small" color="primary" />}
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      {store.category}
+                    </Typography>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                      <Rating value={store.rating || 0} readOnly size="small" />
+                      {store.isVerified && <Verified fontSize="small" color="primary" />}
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-            </Paper>
-          )}
+                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                  {!store.isVerified && (
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        handleVerify(store);
+                      }}
+                      color="primary"
+                    >
+                      <Verified fontSize="small" />
+                    </IconButton>
+                  )}
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      handleToggleStatus(store);
+                    }}
+                  >
+                    {store.isOpen ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
+                  </IconButton>
+                </Box>
+              </Paper>
+            );
+          }}
         />
       </Paper>
 
@@ -401,6 +484,9 @@ export default function Stores() {
                   <strong>البريد الإلكتروني:</strong> {selectedStore.email || '-'}
                 </Typography>
                 <Typography variant="body1" gutterBottom>
+                  <strong>العنوان:</strong> {selectedStore.address?.city || '-'}, {selectedStore.address?.country || '-'}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
                   <strong>تاريخ التسجيل:</strong> {formatDate(selectedStore.createdAt)}
                 </Typography>
                 <Box display="flex" gap={1} mt={2}>
@@ -422,7 +508,7 @@ export default function Stores() {
         actions={
           <>
             <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-            <Button onClick={() => deleteMutation.mutate(selectedStore?._id)} color="error" variant="contained">
+            <Button onClick={confirmDelete} color="error" variant="contained">
               حذف
             </Button>
           </>
@@ -433,7 +519,13 @@ export default function Stores() {
         </Typography>
       </ResponsiveDialog>
 
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+      {/* إشعارات */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>

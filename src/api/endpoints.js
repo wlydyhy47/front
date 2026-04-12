@@ -140,3 +140,18 @@ export const buildUrl = (endpoint, params = {}) => {
   });
   return url.pathname + url.search;
 };
+
+// ✅ دالة مساعدة للحصول على id بأمان (تدعم _id و id)
+export const getId = (item) => {
+  if (!item) return null;
+  return item._id || item.id || null;
+};
+
+// ✅ دالة لتوحيد المصفوفات (تحويل id إلى _id)
+export const normalizeItems = (items) => {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => ({
+    ...item,
+    _id: item._id || item.id,
+  }));
+};

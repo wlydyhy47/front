@@ -13,6 +13,21 @@ const apiClient = axios.create({
   timeout: 30000,
 });
 
+// متغير لمنع تكرار محاولات refresh
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
@@ -21,9 +36,9 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // ✅ إذا كانت البيانات FormData، اترك axios يضبط Content-Type تلقائياً
+    // إذا كانت البيانات FormData، اترك axios يضبط Content-Type تلقائياً
     if (config.data instanceof FormData) {
-      // لا نضيف Content-Type يدوياً لأن axios سيضيفه مع الـ boundary
+      // لا نضيف Content-Type يدوياً
       console.log('📤 Sending FormData');
       for (let pair of config.data.entries()) {
         console.log(`   ${pair[0]}:`, pair[1] instanceof File ? `[File: ${pair[1].name}]` : pair[1]);
@@ -47,7 +62,20 @@ apiClient.interceptors.response.use(
     
     // ✅ تصحيح: استخدام /auth/refresh (بدون -token)
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // إذا كان هناك عملية refresh قيد التنفيذ، انتظر
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(token => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch(err => Promise.reject(err));
+      }
+      
       originalRequest._retry = true;
+      isRefreshing = true;
       
       try {
         const refreshToken = localStorage.getItem('refreshToken');
@@ -61,29 +89,36 @@ apiClient.interceptors.response.use(
           refreshToken,
         });
         
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+        const { accessToken, refreshToken: newRefreshToken } = response.data.data || response.data;
         
         localStorage.setItem('accessToken', accessToken);
         if (newRefreshToken) {
           localStorage.setItem('refreshToken', newRefreshToken);
         }
         
+        // معالجة الطلبات المعلقة
+        processQueue(null, accessToken);
+        
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         
         return apiClient(originalRequest);
       } catch (refreshError) {
         console.error('Refresh token failed:', refreshError);
+        processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         window.location.href = '/login';
         toast.error('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى');
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     
     const errorMessage = error.response?.data?.message || error.message || 'حدث خطأ غير متوقع';
     
+    // معالجة الأخطاء حسب نوعها
     if (error.response?.status === 403) {
       toast.error('ليس لديك صلاحية للوصول إلى هذا المورد');
     } else if (error.response?.status === 404) {
@@ -93,6 +128,7 @@ apiClient.interceptors.response.use(
     } else if (error.response?.status >= 500) {
       toast.error('خطأ في الخادم، الرجاء المحاولة لاحقاً');
     } else if (error.response?.status !== 401) {
+      // لا نعرض رسالة لـ 401 لأننا نتعامل معها بشكل منفصل
       toast.error(errorMessage);
     }
     

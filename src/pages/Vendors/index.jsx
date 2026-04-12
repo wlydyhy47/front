@@ -1,4 +1,6 @@
-import { useState } from 'react';
+// src/pages/Vendors/index.jsx - نسخة مصححة بالكامل
+
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Box,
@@ -31,6 +33,7 @@ import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
 import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 import { useResponsive } from '../../hooks/useResponsive';
 import { formatDate } from '../../utils/formatters';
+import { getId, handleError } from '../../utils/helpers';
 
 export default function Vendors() {
   const { isMobile, fontSize, spacing } = useResponsive();
@@ -46,6 +49,7 @@ export default function Vendors() {
   const [openDetails, setOpenDetails] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // جلب التجار
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['vendors', page, pageSize, filters],
     () => vendorsService.getVendors({
@@ -53,13 +57,24 @@ export default function Vendors() {
       limit: pageSize,
       search: filters.search || undefined,
       isActive: filters.status !== 'all' ? filters.status === 'active' : undefined,
-    })
+    }),
+    {
+      keepPreviousData: true,
+      onError: (error) => {
+        setSnackbar({ 
+          open: true, 
+          message: handleError(error, 'فشل تحميل بيانات التجار'), 
+          severity: 'error' 
+        });
+      }
+    }
   );
 
   const vendors = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
+  // توثيق تاجر
   const verifyMutation = useMutation(
     (id) => vendorsService.verifyVendor(id),
     {
@@ -67,9 +82,13 @@ export default function Vendors() {
         queryClient.invalidateQueries('vendors');
         setSnackbar({ open: true, message: 'تم توثيق التاجر بنجاح', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل توثيق التاجر'), severity: 'error' });
+      },
     }
   );
 
+  // تحديث حالة التاجر
   const updateStatusMutation = useMutation(
     ({ id, isActive }) => vendorsService.updateVendorStatus(id, { isActive }),
     {
@@ -77,20 +96,52 @@ export default function Vendors() {
         queryClient.invalidateQueries('vendors');
         setSnackbar({ open: true, message: 'تم تغيير حالة التاجر', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل تغيير حالة التاجر'), severity: 'error' });
+      },
     }
   );
 
-  const activeVendors = vendors.filter(v => v.isActive).length;
-  const verifiedVendors = vendors.filter(v => v.isVerified).length;
+  // ✅ دوال المعالجة
+  const handleViewDetails = useCallback((vendor) => {
+    setSelectedVendor(vendor);
+    setOpenDetails(true);
+  }, []);
 
-  const statsCards = [
-    { title: 'إجمالي التجار', value: totalCount, icon: Storefront, color: '#2196f3' },
-    { title: 'تجار نشطين', value: activeVendors, icon: CheckCircle, color: '#4caf50' },
-    { title: 'تجار موثقين', value: verifiedVendors, icon: Verified, color: '#ff9800' },
-    { title: 'متوسط التقييم', value: stats.avgRating || '4.5', icon: Rating, color: '#9c27b0' },
-  ];
+  const handleVerify = useCallback((vendor) => {
+    verifyMutation.mutate(getId(vendor));
+  }, [verifyMutation]);
 
-  const columns = [
+  const handleToggleStatus = useCallback((vendor) => {
+    updateStatusMutation.mutate({ id: getId(vendor), isActive: !vendor.isActive });
+  }, [updateStatusMutation]);
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      status: 'all',
+    });
+    setPage(0);
+  }, []);
+
+  // ✅ إحصائيات سريعة
+  const statsCards = useMemo(() => {
+    const activeVendors = vendors.filter(v => v.isActive).length;
+    const verifiedVendors = vendors.filter(v => v.isVerified).length;
+    const avgRating = vendors.length > 0 
+      ? (vendors.reduce((sum, v) => sum + (v.rating || 0), 0) / vendors.length).toFixed(1)
+      : '0';
+    
+    return [
+      { title: 'إجمالي التجار', value: totalCount, icon: Storefront, color: '#2196f3' },
+      { title: 'تجار نشطين', value: activeVendors, icon: CheckCircle, color: '#4caf50' },
+      { title: 'تجار موثقين', value: verifiedVendors, icon: Verified, color: '#ff9800' },
+      { title: 'متوسط التقييم', value: avgRating, icon: Rating, color: '#9c27b0' },
+    ];
+  }, [vendors, totalCount]);
+
+  // ✅ أعمدة الجدول
+  const columns = useMemo(() => [
     {
       field: 'avatar',
       headerName: '',
@@ -146,39 +197,32 @@ export default function Vendors() {
       headerName: 'الإجراءات',
       width: 150,
       hideOnDesktop: false,
-      renderCell: (params) => (
-        <Box display="flex" gap={0.5}>
-          <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" onClick={() => {
-              setSelectedVendor(params.row);
-              setOpenDetails(true);
-            }}>
-              <Visibility fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          {!params.row.isVerified && (
-            <Tooltip title="توثيق">
-              <IconButton size="small" onClick={() => verifyMutation.mutate(params.row._id)} color="primary">
-                <Verified fontSize="small" />
+      renderCell: (params) => {
+        const vendor = params.row;
+        return (
+          <Box display="flex" gap={0.5}>
+            <Tooltip title="عرض التفاصيل">
+              <IconButton size="small" onClick={() => handleViewDetails(vendor)}>
+                <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-          )}
-          <Tooltip title={params.row.isActive ? 'تعطيل' : 'تفعيل'}>
-            <IconButton size="small" onClick={() => updateStatusMutation.mutate({ id: params.row._id, isActive: !params.row.isActive })}>
-              {params.row.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+            {!vendor.isVerified && (
+              <Tooltip title="توثيق">
+                <IconButton size="small" onClick={() => handleVerify(vendor)} color="primary">
+                  <Verified fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={vendor.isActive ? 'تعطيل' : 'تفعيل'}>
+              <IconButton size="small" onClick={() => handleToggleStatus(vendor)}>
+                {vendor.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
-  ];
-
-  const resetFilters = () => {
-    setFilters({
-      search: '',
-      status: 'all',
-    });
-  };
+  ], [handleViewDetails, handleVerify, handleToggleStatus]);
 
   return (
     <Box sx={{ p: spacing.page }}>
@@ -186,14 +230,26 @@ export default function Vendors() {
         إدارة التجار
       </Typography>
 
-      <ResponsiveStatsCards cards={statsCards} columnsDesktop={4} columnsTablet={2} columnsMobile={2} spacing={spacing.section} />
+      <ResponsiveStatsCards 
+        cards={statsCards} 
+        columnsDesktop={4} 
+        columnsTablet={2} 
+        columnsMobile={2} 
+        spacing={spacing.section} 
+      />
 
       <Paper sx={{ p: spacing.card }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
             قائمة التجار
           </Typography>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />} 
+            onClick={() => refetch()} 
+            size="small" 
+            disabled={isFetching}
+          >
             تحديث
           </Button>
         </Box>
@@ -234,39 +290,76 @@ export default function Vendors() {
             setOpenDetails(true);
           }}
           emptyMessage="لا يوجد تجار"
-          renderMobileCard={(vendor) => (
-            <Paper key={vendor._id} sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} onClick={() => {
-              setSelectedVendor(vendor);
-              setOpenDetails(true);
-            }}>
-              <Box display="flex" gap={2}>
-                <Avatar src={vendor.avatar} sx={{ width: 50, height: 50 }}>
-                  {vendor.name?.charAt(0)}
-                </Avatar>
-                <Box flex={1}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {vendor.name}
+          renderMobileCard={(vendor) => {
+            const vendorId = getId(vendor);
+            return (
+              <Paper 
+                key={vendorId} 
+                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
+                onClick={() => {
+                  setSelectedVendor(vendor);
+                  setOpenDetails(true);
+                }}
+              >
+                <Box display="flex" gap={2}>
+                  <Avatar src={vendor.avatar} sx={{ width: 50, height: 50 }}>
+                    {vendor.name?.charAt(0)}
+                  </Avatar>
+                  <Box flex={1}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {vendor.name}
+                      </Typography>
+                      <Chip 
+                        label={vendor.isActive ? 'نشط' : 'غير نشط'} 
+                        size="small" 
+                        color={vendor.isActive ? 'success' : 'error'} 
+                      />
+                    </Box>
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      {vendor.phone}
                     </Typography>
-                    <Chip label={vendor.isActive ? 'نشط' : 'غير نشط'} size="small" color={vendor.isActive ? 'success' : 'error'} />
-                  </Box>
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    {vendor.phone}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    {vendor.email}
-                  </Typography>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                    <Typography variant="caption">عدد المتاجر: {vendor.stores?.length || 0}</Typography>
-                    {vendor.isVerified && <Verified fontSize="small" color="primary" />}
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      {vendor.email}
+                    </Typography>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                      <Typography variant="caption">
+                        عدد المتاجر: {vendor.stores?.length || 0}
+                      </Typography>
+                      {vendor.isVerified && <Verified fontSize="small" color="primary" />}
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-            </Paper>
-          )}
+                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                  {!vendor.isVerified && (
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        handleVerify(vendor);
+                      }}
+                      color="primary"
+                    >
+                      <Verified fontSize="small" />
+                    </IconButton>
+                  )}
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      handleToggleStatus(vendor);
+                    }}
+                  >
+                    {vendor.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
+                  </IconButton>
+                </Box>
+              </Paper>
+            );
+          }}
         />
       </Paper>
 
+      {/* تفاصيل التاجر */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
@@ -307,7 +400,13 @@ export default function Vendors() {
         )}
       </ResponsiveDialog>
 
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+      {/* إشعارات */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>

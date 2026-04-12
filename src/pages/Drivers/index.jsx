@@ -1,4 +1,6 @@
-import { useState } from 'react';
+// src/pages/Drivers/index.jsx - نسخة مصححة بالكامل
+
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Box,
@@ -38,6 +40,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import DriverDetails from './components/DriverDetails';
 import DriverLocation from './components/DriverLocation';
 import { formatDate, formatCurrency } from '../../utils/formatters';
+import { getId, handleError } from '../../utils/helpers';
 
 export default function Drivers() {
   const { isMobile, fontSize, spacing } = useResponsive();
@@ -56,6 +59,7 @@ export default function Drivers() {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // جلب المندوبين
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['drivers', page, pageSize, filters],
     () => driversService.getDrivers({
@@ -64,12 +68,23 @@ export default function Drivers() {
       search: filters.search || undefined,
       isActive: filters.status !== 'all' ? filters.status === 'active' : undefined,
       isOnline: filters.availability !== 'all' ? filters.availability === 'online' : undefined,
-    })
+    }),
+    {
+      keepPreviousData: true,
+      onError: (error) => {
+        setSnackbar({ 
+          open: true, 
+          message: handleError(error, 'فشل تحميل بيانات المندوبين'), 
+          severity: 'error' 
+        });
+      }
+    }
   );
 
   const drivers = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
 
+  // تحديث حالة المندوب
   const updateStatusMutation = useMutation(
     ({ id, isActive }) => driversService.updateDriverStatus(id, { isActive }),
     {
@@ -77,9 +92,13 @@ export default function Drivers() {
         queryClient.invalidateQueries('drivers');
         setSnackbar({ open: true, message: 'تم تغيير حالة المندوب', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل تغيير حالة المندوب'), severity: 'error' });
+      },
     }
   );
 
+  // توثيق المندوب
   const verifyMutation = useMutation(
     (id) => driversService.verifyDriver(id),
     {
@@ -87,27 +106,62 @@ export default function Drivers() {
         queryClient.invalidateQueries('drivers');
         setSnackbar({ open: true, message: 'تم توثيق المندوب', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل توثيق المندوب'), severity: 'error' });
+      },
     }
   );
 
-  const activeDrivers = drivers.filter(d => d.isActive).length;
-  const onlineDrivers = drivers.filter(d => d.isOnline).length;
-  const verifiedDrivers = drivers.filter(d => d.isVerified).length;
+  // ✅ دوال المعالجة
+  const handleViewDetails = useCallback((driver) => {
+    setSelectedDriver(driver);
+    setOpenDetails(true);
+  }, []);
 
-  const statsCards = [
-    { title: 'إجمالي المندوبين', value: totalCount, icon: LocalShipping, color: '#2196f3' },
-    { title: 'مندوبين نشطين', value: activeDrivers, icon: CheckCircle, color: '#4caf50' },
-    { title: 'متصلون الآن', value: onlineDrivers, icon: LocationOn, color: '#ff9800' },
-    { title: 'مندوبين موثقين', value: verifiedDrivers, icon: Verified, color: '#9c27b0' },
-  ];
+  const handleViewLocation = useCallback((driver) => {
+    setSelectedDriver(driver);
+    setOpenLocation(true);
+  }, []);
 
-  const columns = [
+  const handleToggleStatus = useCallback((driver) => {
+    updateStatusMutation.mutate({ id: getId(driver), isActive: !driver.isActive });
+  }, [updateStatusMutation]);
+
+  const handleVerify = useCallback((driver) => {
+    verifyMutation.mutate(getId(driver));
+  }, [verifyMutation]);
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      status: 'all',
+      availability: 'all',
+    });
+    setPage(0);
+  }, []);
+
+  // ✅ إحصائيات سريعة
+  const statsCards = useMemo(() => {
+    const activeDrivers = drivers.filter(d => d.isActive).length;
+    const onlineDrivers = drivers.filter(d => d.isOnline).length;
+    const verifiedDrivers = drivers.filter(d => d.isVerified).length;
+    
+    return [
+      { title: 'إجمالي المندوبين', value: totalCount, icon: LocalShipping, color: '#2196f3' },
+      { title: 'مندوبين نشطين', value: activeDrivers, icon: CheckCircle, color: '#4caf50' },
+      { title: 'متصلون الآن', value: onlineDrivers, icon: LocationOn, color: '#ff9800' },
+      { title: 'مندوبين موثقين', value: verifiedDrivers, icon: Verified, color: '#9c27b0' },
+    ];
+  }, [drivers, totalCount]);
+
+  // ✅ أعمدة الجدول
+  const columns = useMemo(() => [
     {
       field: 'avatar',
       headerName: '',
       width: 60,
       renderCell: (params) => (
-        <Avatar src={params.value} sx={{ width: 40, height: 40 }}>
+        <Avatar src={params.row.avatar} sx={{ width: 40, height: 40 }}>
           {params.row.name?.charAt(0)}
         </Avatar>
       ),
@@ -128,7 +182,11 @@ export default function Drivers() {
       headerName: 'الحالة',
       width: 100,
       renderCell: (params) => (
-        <Chip label={params.value ? 'متصل' : 'غير متصل'} size="small" color={params.value ? 'success' : 'default'} />
+        <Chip 
+          label={params.value ? 'متصل' : 'غير متصل'} 
+          size="small" 
+          color={params.value ? 'success' : 'default'} 
+        />
       ),
     },
     {
@@ -136,56 +194,50 @@ export default function Drivers() {
       headerName: 'نشط',
       width: 80,
       renderCell: (params) => (
-        <Chip label={params.value ? 'نشط' : 'غير نشط'} size="small" color={params.value ? 'success' : 'error'} />
+        <Chip 
+          label={params.value ? 'نشط' : 'غير نشط'} 
+          size="small" 
+          color={params.value ? 'success' : 'error'} 
+        />
       ),
     },
     {
       field: 'actions',
       headerName: 'الإجراءات',
-      width: 180,
+      width: 200,
       hideOnDesktop: false,
-      renderCell: (params) => (
-        <Box>
-          <Tooltip title="عرض التفاصيل">
-            <IconButton size="small" onClick={() => {
-              setSelectedDriver(params.row);
-              setOpenDetails(true);
-            }}>
-              <Visibility fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="الموقع الحالي">
-            <IconButton size="small" onClick={() => {
-              setSelectedDriver(params.row);
-              setOpenLocation(true);
-            }}>
-              <LocationOn fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          {!params.row.isVerified && (
-            <Tooltip title="توثيق">
-              <IconButton size="small" onClick={() => verifyMutation.mutate(params.row._id)} color="primary">
-                <Verified fontSize="small" />
+      renderCell: (params) => {
+        const driver = params.row;
+        const driverId = getId(driver);
+        return (
+          <Box display="flex" gap={0.5}>
+            <Tooltip title="عرض التفاصيل">
+              <IconButton size="small" onClick={() => handleViewDetails(driver)}>
+                <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-          )}
-          <Tooltip title={params.row.isActive ? 'تعطيل' : 'تفعيل'}>
-            <IconButton size="small" onClick={() => updateStatusMutation.mutate({ id: params.row._id, isActive: !params.row.isActive })}>
-              {params.row.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+            <Tooltip title="الموقع الحالي">
+              <IconButton size="small" onClick={() => handleViewLocation(driver)}>
+                <LocationOn fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {!driver.isVerified && (
+              <Tooltip title="توثيق">
+                <IconButton size="small" onClick={() => handleVerify(driver)} color="primary">
+                  <Verified fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={driver.isActive ? 'تعطيل' : 'تفعيل'}>
+              <IconButton size="small" onClick={() => handleToggleStatus(driver)}>
+                {driver.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
-  ];
-
-  const resetFilters = () => {
-    setFilters({
-      search: '',
-      status: 'all',
-      availability: 'all',
-    });
-  };
+  ], [handleViewDetails, handleViewLocation, handleVerify, handleToggleStatus]);
 
   return (
     <Box sx={{ p: spacing.page }}>
@@ -193,14 +245,26 @@ export default function Drivers() {
         إدارة المندوبين
       </Typography>
 
-      <ResponsiveStatsCards cards={statsCards} columnsDesktop={4} columnsTablet={2} columnsMobile={2} spacing={spacing.section} />
+      <ResponsiveStatsCards 
+        cards={statsCards} 
+        columnsDesktop={4} 
+        columnsTablet={2} 
+        columnsMobile={2} 
+        spacing={spacing.section} 
+      />
 
       <Paper sx={{ p: spacing.card }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
             قائمة المندوبين
           </Typography>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />} 
+            onClick={() => refetch()} 
+            size="small" 
+            disabled={isFetching}
+          >
             تحديث
           </Button>
         </Box>
@@ -255,45 +319,108 @@ export default function Drivers() {
             setOpenDetails(true);
           }}
           emptyMessage="لا يوجد مندوبين"
-          renderMobileCard={(driver) => (
-            <Paper key={driver._id} sx={{ p: 1.5, cursor: 'pointer' }} onClick={() => {
-              setSelectedDriver(driver);
-              setOpenDetails(true);
-            }}>
-              <Box display="flex" gap={2}>
-                <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
-                  {driver.name?.charAt(0)}
-                </Avatar>
-                <Box flex={1}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {driver.name}
+          renderMobileCard={(driver) => {
+            const driverId = getId(driver);
+            return (
+              <Paper 
+                key={driverId} 
+                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
+                onClick={() => {
+                  setSelectedDriver(driver);
+                  setOpenDetails(true);
+                }}
+              >
+                <Box display="flex" gap={2}>
+                  <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
+                    {driver.name?.charAt(0)}
+                  </Avatar>
+                  <Box flex={1}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {driver.name}
+                      </Typography>
+                      <Chip 
+                        label={driver.isOnline ? 'متصل' : 'غير متصل'} 
+                        size="small" 
+                        color={driver.isOnline ? 'success' : 'default'} 
+                      />
+                    </Box>
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      {driver.phone}
                     </Typography>
-                    <Chip label={driver.isOnline ? 'متصل' : 'غير متصل'} size="small" color={driver.isOnline ? 'success' : 'default'} />
-                  </Box>
-                  <Typography variant="caption" color="textSecondary" display="block">
-                    {driver.phone}
-                  </Typography>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                    <Rating value={driver.rating || 0} readOnly size="small" />
-                    {driver.isVerified && <Verified fontSize="small" color="primary" />}
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                      <Rating value={driver.rating || 0} readOnly size="small" />
+                      {driver.isVerified && <Verified fontSize="small" color="primary" />}
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-            </Paper>
-          )}
+                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      handleViewLocation(driver);
+                    }}
+                  >
+                    <LocationOn fontSize="small" />
+                  </IconButton>
+                  {!driver.isVerified && (
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        handleVerify(driver);
+                      }}
+                      color="primary"
+                    >
+                      <Verified fontSize="small" />
+                    </IconButton>
+                  )}
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      handleToggleStatus(driver);
+                    }}
+                  >
+                    {driver.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
+                  </IconButton>
+                </Box>
+              </Paper>
+            );
+          }}
         />
       </Paper>
 
-      <ResponsiveDialog open={openDetails} onClose={() => setOpenDetails(false)} title="تفاصيل المندوب" maxWidth="md" actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}>
+      {/* حوار تفاصيل المندوب */}
+      <ResponsiveDialog 
+        open={openDetails} 
+        onClose={() => setOpenDetails(false)} 
+        title="تفاصيل المندوب" 
+        maxWidth="md" 
+        actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
+      >
         {selectedDriver && <DriverDetails driver={selectedDriver} />}
       </ResponsiveDialog>
 
-      <ResponsiveDialog open={openLocation} onClose={() => setOpenLocation(false)} title={`موقع المندوب - ${selectedDriver?.name}`} maxWidth="md" actions={<Button onClick={() => setOpenLocation(false)}>إغلاق</Button>}>
-        {selectedDriver && <DriverLocation driverId={selectedDriver._id} />}
+      {/* حوار موقع المندوب */}
+      <ResponsiveDialog 
+        open={openLocation} 
+        onClose={() => setOpenLocation(false)} 
+        title={`موقع المندوب - ${selectedDriver?.name}`} 
+        maxWidth="md" 
+        actions={<Button onClick={() => setOpenLocation(false)}>إغلاق</Button>}
+      >
+        {selectedDriver && <DriverLocation driverId={getId(selectedDriver)} />}
       </ResponsiveDialog>
 
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+      {/* إشعارات */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// src/pages/Users/index.jsx - نسخة مصححة بالكامل
+
+import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Box,
@@ -44,7 +46,6 @@ import {
   Block,
   CheckCircle,
   Refresh,
-  Download,
   Person,
   AdminPanelSettings,
   Storefront,
@@ -57,6 +58,7 @@ import UserForm from './components/UserForm';
 import UserDetails from './components/UserDetails';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatDate } from '../../utils/formatters';
+import { getId, getReactKey } from '../../utils/helpers';
 
 const roleConfig = {
   admin: {
@@ -105,6 +107,7 @@ export default function Users() {
 
   const debouncedSearch = useDebounce(search, 500);
 
+  // ✅ استخدام useCallback للدوال
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['users', page, rowsPerPage, debouncedSearch, roleFilter, statusFilter],
     () => usersService.getUsers({
@@ -116,9 +119,6 @@ export default function Users() {
     }),
     {
       keepPreviousData: true,
-      onSuccess: (response) => {
-        console.log('✅ Users data received:', response);
-      },
     }
   );
 
@@ -134,6 +134,9 @@ export default function Users() {
         setOpenDeleteDialog(false);
         setSnackbar({ open: true, message: 'تم حذف المستخدم بنجاح', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: error.response?.data?.message || 'فشل حذف المستخدم', severity: 'error' });
+      },
     }
   );
 
@@ -144,50 +147,64 @@ export default function Users() {
         queryClient.invalidateQueries('users');
         setSnackbar({ open: true, message: 'تم تغيير حالة المستخدم بنجاح', severity: 'success' });
       },
+      onError: (error) => {
+        setSnackbar({ open: true, message: error.response?.data?.message || 'فشل تغيير الحالة', severity: 'error' });
+      },
     }
   );
 
-  const handleViewDetails = (user) => {
+  // ✅ استخدام useCallback للدوال
+  const handleViewDetails = useCallback((user) => {
     setSelectedUser(user);
     setOpenDetails(true);
-  };
+  }, []);
 
-  const handleEdit = (user) => {
+  const handleEdit = useCallback((user) => {
     setSelectedUser(user);
     setOpenForm(true);
-  };
+  }, []);
 
-  const handleDelete = (user) => {
+  const handleDelete = useCallback((user) => {
     setSelectedUser(user);
     setOpenDeleteDialog(true);
-  };
+  }, []);
 
-  const handleToggleStatus = (user) => {
-    toggleStatusMutation.mutate({ id: user._id, isActive: user.isActive });
-  };
+  const handleToggleStatus = useCallback((user) => {
+    toggleStatusMutation.mutate({ id: getId(user), isActive: user.isActive });
+  }, [toggleStatusMutation]);
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     if (selectedUser) {
-      deleteMutation.mutate(selectedUser._id);
+      deleteMutation.mutate(getId(selectedUser));
     }
-  };
+  }, [selectedUser, deleteMutation]);
 
-  const handleChangePage = (event, newPage) => {
+  const handleChangePage = useCallback((event, newPage) => {
     setPage(newPage);
-  };
+  }, []);
 
-  const handleChangeRowsPerPage = (event) => {
+  const handleChangeRowsPerPage = useCallback((event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
+  }, []);
 
-  const totalUsers = stats?.total || 0;
-  const activeUsers = stats?.active || 0;
-  const verifiedUsers = stats?.verified || 0;
-  const byRole = stats?.byRole || [];
+  const resetFilters = useCallback(() => {
+    setSearch('');
+    setRoleFilter('all');
+    setStatusFilter('all');
+    setShowFilters(false);
+  }, []);
+
+  // ✅ استخدام useMemo للحصول على الإحصائيات
+  const statsCards = useMemo(() => [
+    { label: 'إجمالي المستخدمين', value: stats?.total || 0, color: '#1976d2', icon: People },
+    { label: 'مستخدمين نشطين', value: stats?.active || 0, color: '#4caf50', icon: CheckCircle },
+    { label: 'مستخدمين موثقين', value: stats?.verified || 0, color: '#ff9800', icon: AdminPanelSettings },
+    { label: 'الأدوار المتاحة', value: stats?.byRole?.length || 0, color: '#9c27b0', icon: Person },
+  ], [stats]);
 
   // ✅ عرض الجدول للشاشات المتوسطة والكبيرة
-  const renderDesktopTable = () => {
+  const renderDesktopTable = useCallback(() => {
     if (isLoading) {
       return (
         <Box display="flex" justifyContent="center" py={4}>
@@ -214,8 +231,9 @@ export default function Users() {
             <TableBody>
               {users.map((user) => {
                 const RoleIcon = roleConfig[user.role]?.icon || Person;
+                const userId = getId(user);
                 return (
-                  <TableRow key={user._id} hover>
+                  <TableRow key={userId} hover>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
                         <Avatar src={user.image} sx={{ width: 32, height: 32 }}>
@@ -292,10 +310,10 @@ export default function Users() {
         />
       </>
     );
-  };
+  }, [isLoading, isTablet, users, totalCount, rowsPerPage, page, handleViewDetails, handleEdit, handleToggleStatus, handleDelete, handleChangePage, handleChangeRowsPerPage]);
 
-  // ✅ عرض البطاقات للهواتف (مع أزرار الإجراءات)
-  const renderMobileCards = () => {
+  // ✅ عرض البطاقات للهواتف
+  const renderMobileCards = useCallback(() => {
     if (isLoading) {
       return (
         <Box textAlign="center" py={4}>
@@ -316,8 +334,9 @@ export default function Users() {
       <List sx={{ width: '100%', p: 0 }}>
         {users.map((user) => {
           const RoleIcon = roleConfig[user.role]?.icon || Person;
+          const userId = getId(user);
           return (
-            <Card key={user._id} sx={{ mb: 2, p: 1.5 }}>
+            <Card key={userId} sx={{ mb: 2, p: 1.5 }}>
               <Box display="flex" alignItems="center" gap={2}>
                 <Avatar src={user.image} sx={{ width: 48, height: 48 }}>
                   {user.name?.charAt(0)}
@@ -357,7 +376,6 @@ export default function Users() {
                 </Box>
               </Box>
               
-              {/* ✅ أزرار الإجراءات - في صف منفصل للهواتف */}
               <Box 
                 display="flex" 
                 justifyContent="space-between" 
@@ -397,7 +415,6 @@ export default function Users() {
           );
         })}
         
-        {/* ✅ ترقيم الصفحات للهواتف */}
         {totalCount > rowsPerPage && (
           <Box display="flex" justifyContent="center" alignItems="center" mt={2} gap={2}>
             <Button
@@ -423,7 +440,7 @@ export default function Users() {
         )}
       </List>
     );
-  };
+  }, [isLoading, users, totalCount, rowsPerPage, page, handleViewDetails, handleEdit, handleToggleStatus, handleDelete]);
 
   return (
     <Box 
@@ -436,74 +453,25 @@ export default function Users() {
     >
       {/* بطاقات الإحصائيات */}
       <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#1976d210', borderRight: '4px solid #1976d2' }}>
-            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    إجمالي المستخدمين
-                  </Typography>
-                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold">
-                    {totalUsers.toLocaleString()}
-                  </Typography>
+        {statsCards.map((stat, index) => (
+          <Grid item xs={6} sm={6} md={3} key={index}>
+            <Card sx={{ bgcolor: `${stat.color}10`, borderRight: `4px solid ${stat.color}` }}>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {stat.label}
+                    </Typography>
+                    <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" sx={{ color: stat.color }}>
+                      {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+                    </Typography>
+                  </Box>
+                  <stat.icon sx={{ fontSize: { xs: 32, sm: 48 }, color: stat.color, opacity: 0.5 }} />
                 </Box>
-                <People sx={{ fontSize: { xs: 32, sm: 48 }, color: '#1976d2', opacity: 0.5 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#4caf5010', borderRight: '4px solid #4caf50' }}>
-            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    المستخدمين النشطين
-                  </Typography>
-                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="success.main">
-                    {activeUsers.toLocaleString()}
-                  </Typography>
-                </Box>
-                <CheckCircle sx={{ fontSize: { xs: 32, sm: 48 }, color: '#4caf50', opacity: 0.5 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#ff980010', borderRight: '4px solid #ff9800' }}>
-            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    المستخدمين الموثقين
-                  </Typography>
-                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="warning.main">
-                    {verifiedUsers.toLocaleString()}
-                  </Typography>
-                </Box>
-                <AdminPanelSettings sx={{ fontSize: { xs: 32, sm: 48 }, color: '#ff9800', opacity: 0.5 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#9c27b010', borderRight: '4px solid #9c27b0' }}>
-            <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    الأدوار المتاحة
-                  </Typography>
-                  <Typography variant={isMobile ? "h5" : "h4"} fontWeight="bold" color="secondary.main">
-                    {byRole.length}
-                  </Typography>
-                </Box>
-                <Person sx={{ fontSize: { xs: 32, sm: 48 }, color: '#9c27b0', opacity: 0.5 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
@@ -602,12 +570,7 @@ export default function Users() {
                   <Button
                     fullWidth
                     variant="outlined"
-                    onClick={() => {
-                      setSearch('');
-                      setRoleFilter('all');
-                      setStatusFilter('all');
-                      setShowFilters(false);
-                    }}
+                    onClick={resetFilters}
                     size="small"
                   >
                     مسح الفلترة
