@@ -673,27 +673,6 @@ class ErrorBoundary extends Component {
 export default ErrorBoundary;
 </file>
 
-<file path="src/components/Common/LoadingSpinner.jsx">
-import { Box, CircularProgress, Typography } from '@mui/material';
-
-export default function LoadingSpinner({ message = 'جاري التحميل...' }) {
-  return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      justifyContent="center"
-      alignItems="center"
-      minHeight="200px"
-    >
-      <CircularProgress />
-      <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
-        {message}
-      </Typography>
-    </Box>
-  );
-}
-</file>
-
 <file path="src/components/Common/Pagination.jsx">
 import { Box, Button, Typography, Select, MenuItem, FormControl } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
@@ -3737,161 +3716,6 @@ export const getInitials = (name) => {
 };
 </file>
 
-<file path="src/utils/helpers.js">
-// src/utils/helpers.js - دوال مساعدة
-
-/**
- * الحصول على ID بأمان (يدعم _id و id)
- * @param {Object} item - العنصر
- * @returns {string|null} - الـ ID أو null
- */
-export const getId = (item) => {
-  if (!item) return null;
-  return item._id || item.id || null;
-};
-
-/**
- * توحيد IDs في مصفوفة
- * @param {Array} items - المصفوفة
- * @returns {Array} - مصفوفة مع توحيد الـ IDs
- */
-export const normalizeItems = (items) => {
-  if (!Array.isArray(items)) return [];
-  return items.map(item => ({
-    ...item,
-    _id: item._id || item.id,
-  }));
-};
-
-/**
- * إنشاء key فريد للـ React
- * @param {Object} item - العنصر
- * @param {number} index - الفهرس
- * @returns {string} - المفتاح
- */
-export const getReactKey = (item, index) => {
-  const id = getId(item);
-  return id ? String(id) : `item-${index}-${Date.now()}`;
-};
-
-/**
- * معالجة الأخطاء بشكل موحد
- * @param {Error} error - الخطأ
- * @param {Function} onError - دالة معالجة إضافية
- * @returns {string} - رسالة الخطأ
- */
-export const handleError = (error, onError = null) => {
-  console.error('Error:', error);
-  
-  let message = 'حدث خطأ غير متوقع';
-  
-  if (error.response) {
-    // خطأ من الخادم
-    message = error.response.data?.message || 
-              error.response.data?.error || 
-              `خطأ ${error.response.status}`;
-  } else if (error.request) {
-    // لم يتم استلام رد
-    message = 'لا يمكن الاتصال بالخادم';
-  } else if (error.message) {
-    message = error.message;
-  }
-  
-  if (onError && typeof onError === 'function') {
-    onError(message);
-  }
-  
-  return message;
-};
-
-/**
- * تأخير التنفيذ (لـ debounce)
- * @param {Function} fn - الدالة
- * @param {number} delay - التأخير بالمللي ثانية
- * @returns {Function} - الدالة مع debounce
- */
-export const debounce = (fn, delay = 500) => {
-  let timeoutId;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
-};
-
-/**
- * نسخ عميق للكائن
- * @param {Object} obj - الكائن
- * @returns {Object} - نسخة عميقة
- */
-export const deepClone = (obj) => {
-  if (!obj) return null;
-  try {
-    return JSON.parse(JSON.stringify(obj));
-  } catch {
-    return { ...obj };
-  }
-};
-
-/**
- * التحقق من أن الكائن فارغ
- * @param {Object} obj - الكائن
- * @returns {boolean}
- */
-export const isEmptyObject = (obj) => {
-  return obj && Object.keys(obj).length === 0 && obj.constructor === Object;
-};
-
-/**
- * تنسيق الاسم (capitalize)
- * @param {string} str - النص
- * @returns {string}
- */
-export const capitalize = (str) => {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-};
-
-/**
- * انتظار لمدة محددة (Promise-based sleep)
- * @param {number} ms - المدة بالمللي ثانية
- * @returns {Promise}
- */
-export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * نسخ النص إلى الحافظة
- * @param {string} text - النص للنسخ
- * @returns {Promise<boolean>}
- */
-export const copyToClipboard = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (err) {
-    console.error('Failed to copy:', err);
-    return false;
-  }
-};
-
-/**
- * استخراج رسالة الخطأ من الاستجابة
- * @param {Object} error - كائن الخطأ
- * @returns {string}
- */
-export const extractErrorMessage = (error) => {
-  if (error.response?.data?.message) {
-    return error.response.data.message;
-  }
-  if (error.response?.data?.error) {
-    return error.response.data.error;
-  }
-  if (error.message) {
-    return error.message;
-  }
-  return 'حدث خطأ غير متوقع';
-};
-</file>
-
 <file path="src/utils/validators.js">
 import * as Yup from 'yup';
 
@@ -3980,137 +3804,69 @@ export const isAdmin = (user) => {
 };
 </file>
 
-<file path="src/App.jsx">
-// src/App.jsx - النسخة المصححة
+<file path="src/components/Common/LoadingSpinner.jsx">
+// src/components/Common/LoadingSpinner.jsx
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { Toaster } from 'react-hot-toast';
-import { ThemeProvider, StyledEngineProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { lazy, Suspense } from 'react';
-import { AuthProvider } from './context/AuthContext';
-import { ThemeContextProvider, useThemeContext } from './context/ThemeContext';
-import MainLayout from './components/Layout/MainLayout';
-import PrivateRoute from './components/Common/PrivateRoute';
-import ErrorBoundary from './components/Common/ErrorBoundary';
-import LoadingSpinner from './components/Common/LoadingSpinner';
-// ✅ إضافة استيراد getTheme
-import { getTheme } from './styles/theme';
+import { Box, CircularProgress, Typography, Skeleton, Paper } from '@mui/material';
 
-// ✅ Lazy loading للصفحات
-const Login = lazy(() => import('./pages/Login'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Users = lazy(() => import('./pages/Users'));
-const Vendors = lazy(() => import('./pages/Vendors'));
-const Stores = lazy(() => import('./pages/Stores'));
-const Products = lazy(() => import('./pages/Products'));
-const Orders = lazy(() => import('./pages/Orders'));
-const Drivers = lazy(() => import('./pages/Drivers'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const Reports = lazy(() => import('./pages/Reports'));
-const AdvancedStats = lazy(() => import('./pages/AdvancedStats'));
-const System = lazy(() => import('./pages/System'));
-const NotFound = lazy(() => import('./pages/NotFound'));
-const MapPage = lazy(() => import('./pages/Map'));
+export default function LoadingSpinner({ message = 'جاري التحميل...', fullPage = false, type = 'spinner' }) {
+  if (fullPage) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+        bgcolor="background.default"
+      >
+        {type === 'spinner' ? (
+          <CircularProgress size={48} />
+        ) : (
+          <Skeleton variant="circular" width={48} height={48} />
+        )}
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+          {message}
+        </Typography>
+      </Box>
+    );
+  }
 
-// مكون الـ Suspense wrapper
-const SuspenseWrapper = ({ children }) => (
-  <Suspense fallback={<LoadingSpinner />}>
-    {children}
-  </Suspense>
-);
+  if (type === 'skeleton') {
+    return (
+      <Box p={2}>
+        <Skeleton variant="rectangular" height={40} sx={{ mb: 2, borderRadius: 1 }} />
+        <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 1 }} />
+        <Box display="flex" gap={2} mt={2}>
+          <Skeleton variant="rectangular" height={60} sx={{ flex: 1, borderRadius: 1 }} />
+          <Skeleton variant="rectangular" height={60} sx={{ flex: 1, borderRadius: 1 }} />
+          <Skeleton variant="rectangular" height={60} sx={{ flex: 1, borderRadius: 1 }} />
+          <Skeleton variant="rectangular" height={60} sx={{ flex: 1, borderRadius: 1 }} />
+        </Box>
+      </Box>
+    );
+  }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 5 * 60 * 1000,
-    },
-  },
-});
-
-function AppContent() {
-  const { mode } = useThemeContext();
-  const theme = getTheme(mode);
-  
   return (
-    <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AuthProvider>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                fontFamily: 'inherit',
-              },
-            }}
-          />
-          <SuspenseWrapper>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/"
-                element={
-                  <PrivateRoute>
-                    <MainLayout />
-                  </PrivateRoute>
-                }
-              >
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="users" element={<Users />} />
-                <Route path="users/:id" element={<Users />} />
-                <Route path="vendors" element={<Vendors />} />
-                <Route path="vendors/:id" element={<Vendors />} />
-                <Route path="stores" element={<Stores />} />
-                <Route path="stores/:id" element={<Stores />} />
-                <Route path="products" element={<Products />} />
-                <Route path="products/:id" element={<Products />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="orders/:id" element={<Orders />} />
-                <Route path="drivers" element={<Drivers />} />
-                <Route path="drivers/:id" element={<Drivers />} />
-                <Route path="notifications" element={<Notifications />} />
-                <Route path="analytics" element={<Analytics />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="advanced-stats" element={<AdvancedStats />} />
-                <Route path="system" element={<System />} />
-                <Route path="map" element={<MapPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
-          </SuspenseWrapper>
-        </AuthProvider>
-      </ThemeProvider>
-    </StyledEngineProvider>
+    <Paper
+      elevation={0}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: 200,
+        p: 3,
+        bgcolor: 'transparent',
+      }}
+    >
+      <CircularProgress size={40} />
+      <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+        {message}
+      </Typography>
+    </Paper>
   );
 }
-
-function App() {
-  return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeContextProvider>
-          <BrowserRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            <AppContent />
-          </BrowserRouter>
-        </ThemeContextProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
-}
-
-export default App;
 </file>
 
 <file path="src/components/Common/ResponsiveDialog.jsx">
@@ -9269,6 +9025,208 @@ export default function System() {
 }
 </file>
 
+<file path="src/utils/helpers.js">
+// src/utils/helpers.js - دوال مساعدة
+
+/**
+ * الحصول على ID بأمان (يدعم _id و id)
+ * @param {Object} item - العنصر
+ * @returns {string|null} - الـ ID أو null
+ */
+export const getId = (item) => {
+  if (!item) return null;
+  return item._id || item.id || null;
+};
+
+/**
+ * توحيد IDs في مصفوفة
+ * @param {Array} items - المصفوفة
+ * @returns {Array} - مصفوفة مع توحيد الـ IDs
+ */
+export const normalizeItems = (items) => {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => ({
+    ...item,
+    _id: item._id || item.id,
+  }));
+};
+
+/**
+ * إنشاء key فريد للـ React
+ * @param {Object} item - العنصر
+ * @param {number} index - الفهرس
+ * @returns {string} - المفتاح
+ */
+export const getReactKey = (item, index) => {
+  const id = getId(item);
+  return id ? String(id) : `item-${index}-${Date.now()}`;
+};
+
+/**
+ * معالجة الأخطاء بشكل موحد
+ * @param {Error} error - الخطأ
+ * @param {Function} onError - دالة معالجة إضافية
+ * @returns {string} - رسالة الخطأ
+ */
+export const handleError = (error, onError = null) => {
+  console.error('Error:', error);
+  
+  let message = 'حدث خطأ غير متوقع';
+  
+  if (error.response) {
+    // خطأ من الخادم
+    message = error.response.data?.message || 
+              error.response.data?.error || 
+              `خطأ ${error.response.status}`;
+  } else if (error.request) {
+    // لم يتم استلام رد
+    message = 'لا يمكن الاتصال بالخادم';
+  } else if (error.message) {
+    message = error.message;
+  }
+  
+  if (onError && typeof onError === 'function') {
+    onError(message);
+  }
+  
+  return message;
+};
+
+/**
+ * تأخير التنفيذ (لـ debounce)
+ * @param {Function} fn - الدالة
+ * @param {number} delay - التأخير بالمللي ثانية
+ * @returns {Function} - الدالة مع debounce
+ */
+export const debounce = (fn, delay = 500) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+};
+
+/**
+ * نسخ عميق للكائن
+ * @param {Object} obj - الكائن
+ * @returns {Object} - نسخة عميقة
+ */
+export const deepClone = (obj) => {
+  if (!obj) return null;
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    return { ...obj };
+  }
+};
+
+/**
+ * التحقق من أن الكائن فارغ
+ * @param {Object} obj - الكائن
+ * @returns {boolean}
+ */
+export const isEmptyObject = (obj) => {
+  return obj && Object.keys(obj).length === 0 && obj.constructor === Object;
+};
+
+/**
+ * تنسيق الاسم (capitalize)
+ * @param {string} str - النص
+ * @returns {string}
+ */
+export const capitalize = (str) => {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
+/**
+ * انتظار لمدة محددة (Promise-based sleep)
+ * @param {number} ms - المدة بالمللي ثانية
+ * @returns {Promise}
+ */
+export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * نسخ النص إلى الحافظة
+ * @param {string} text - النص للنسخ
+ * @returns {Promise<boolean>}
+ */
+export const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    return false;
+  }
+};
+
+/**
+ * استخراج رسالة الخطأ من الاستجابة
+ * @param {Object} error - كائن الخطأ
+ * @returns {string}
+ */
+export const extractErrorMessage = (error) => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.data?.error) {
+    return error.response.data.error;
+  }
+  if (error.message) {
+    return error.message;
+  }
+  return 'حدث خطأ غير متوقع';
+};
+
+/**
+ * الحصول على قيمة بأمان من كائن
+ * @param {Object} obj - الكائن
+ * @param {string} path - المسار (مثل 'user.name')
+ * @param {any} defaultValue - القيمة الافتراضية
+ * @returns {any}
+ */
+export const getSafeValue = (obj, path, defaultValue = '') => {
+  if (!obj || !path) return defaultValue;
+  
+  const keys = path.split('.');
+  let result = obj;
+  
+  for (const key of keys) {
+    if (result === undefined || result === null) {
+      return defaultValue;
+    }
+    result = result[key];
+  }
+  
+  return result !== undefined && result !== null ? result : defaultValue;
+};
+
+/**
+ * تنسيق رقم الهاتف بأمان
+ * @param {string} phone - رقم الهاتف
+ * @returns {string}
+ */
+export const formatPhoneSafe = (phone) => {
+  if (!phone) return '-';
+  return String(phone);
+};
+
+/**
+ * تنسيق التاريخ بأمان
+ * @param {any} date - التاريخ
+ * @returns {string}
+ */
+export const formatDateSafe = (date) => {
+  if (!date) return '-';
+  try {
+    return new Date(date).toLocaleDateString('ar-SA');
+  } catch {
+    return '-';
+  }
+};
+</file>
+
 <file path="src/utils/mapHelpers.js">
 // src/utils/mapHelpers.js - دوال مساعدة للخرائط
 
@@ -9478,61 +9436,6 @@ export const reverseGeocode = async (lat, lng, apiKey) => {
 };
 </file>
 
-<file path="vite.config.js">
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3000,
-    open: true,
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false,
-    minify: 'esbuild',
-    assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        // ✅ تأكد من أن الملفات تنشأ بشكل صحيح
-        entryFileNames: 'assets/[name].[hash].js',
-        chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]'
-      }
-    },
-    // ✅ تأكد من تحويل CSS بشكل صحيح
-    cssCodeSplit: true,
-  },
-  resolve: {
-    alias: {
-      '@': '/src',
-    },
-  },
-  base: '/',
-});
-</file>
-
-<file path="index.html">
-<!DOCTYPE html>
-<html lang="ar">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon"  href="/icon.png"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Admin Dashboard - Food Delivery Platform Management System" />
-    <title>Admin Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
-</file>
-
 <file path="src/api/client.js">
 // src/api/client.js - النسخة المصححة بالكامل
 
@@ -9675,164 +9578,303 @@ apiClient.interceptors.response.use(
 export default apiClient;
 </file>
 
-<file path="src/api/endpoints.js">
-// src/api/endpoints.js - النسخة المصححة بالكامل
+<file path="src/App.jsx">
+// src/App.jsx - النسخة المصححة بالكامل
 
-// ==================== نقاط نهاية المصادقة ====================
-export const authEndpoints = {
-  login: '/auth/login',
-  register: '/auth/register',
-  logout: '/auth/logout',
-  refresh: '/auth/refresh',
-  verify: '/auth/verify',
-  resendVerification: '/auth/resend-verification',
-  forgotPassword: '/auth/forgot-password',
-  resetPassword: '/auth/reset-password',
-  changePassword: '/auth/change-password',
-  validateToken: '/auth/validate',
-  revokeAllSessions: '/auth/revoke-all-sessions',
-};
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { Toaster } from 'react-hot-toast';
+import { ThemeProvider, StyledEngineProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { lazy, Suspense } from 'react';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeContextProvider, useThemeContext } from './context/ThemeContext';
+import MainLayout from './components/Layout/MainLayout';
+import PrivateRoute from './components/Common/PrivateRoute';
+import ErrorBoundary from './components/Common/ErrorBoundary';
+import LoadingSpinner from './components/Common/LoadingSpinner';
+import { getTheme } from './styles/theme';
 
-// ==================== نقاط نهاية الخرائط ====================
-export const mapEndpoints = {
-  // المسارات
-  directions: '/map/directions',
-  distance: '/map/distance',
-  staticMap: '/map/static',
-  
-  // البحث عن العناوين
-  geocode: '/map/geocode',
-  reverseGeocode: '/map/reverse-geocode',
-  
-  // المتاجر
-  stores: '/map/stores',
-  storeIsochrone: (storeId) => `/map/store/${storeId}/isochrone`,
-  nearestDriver: '/map/store/nearest-driver',
-  
-  // المندوبين
-  driverLocation: '/map/driver/location',
-  trackDriver: (driverId) => `/map/driver/${driverId}/track`,
-  allDriversLocations: '/map/drivers/locations',
-  trackAllDrivers: '/map/drivers/track-all',
-  nearestDriverAdmin: '/map/nearest-driver',
-  
-  // الطلبات
-  orderRoute: (orderId) => `/map/order/${orderId}/route`,
-  driverCurrentRoute: '/map/driver/current-route',
-};
+// ✅ Lazy loading للصفحات
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Users = lazy(() => import('./pages/Users'));
+const Vendors = lazy(() => import('./pages/Vendors'));
+const Stores = lazy(() => import('./pages/Stores'));
+const Products = lazy(() => import('./pages/Products'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Drivers = lazy(() => import('./pages/Drivers'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Reports = lazy(() => import('./pages/Reports'));
+const AdvancedStats = lazy(() => import('./pages/AdvancedStats'));
+const System = lazy(() => import('./pages/System'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const MapPage = lazy(() => import('./pages/Map'));
 
-// ==================== نقاط نهاية الأدمن ====================
-export const adminEndpoints = {
-  // لوحة التحكم والإحصائيات
-  dashboard: '/admin/dashboard',
-  stats: '/admin/stats',
-  statsUsers: '/admin/stats/users',
-  statsOrders: '/admin/stats/orders',
-  statsRevenue: '/admin/stats/revenue',
-  
-  // إدارة المستخدمين
-  users: '/admin/users',
-  userDetails: (id) => `/admin/users/${id}`,
-  
-  // إدارة التجار
-  vendors: '/admin/vendors',
-  vendorDetails: (id) => `/admin/vendors/${id}`,
-  verifyVendor: (id) => `/admin/vendors/${id}/verify`,
-  updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
-  
-  // إدارة المتاجر
-  stores: '/admin/stores',
-  storeDetails: (id) => `/admin/stores/${id}`,
-  verifyStore: (id) => `/admin/stores/${id}/verify`,
-  toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
-  updateStoreCoordinates: '/admin/stores/update-coordinates',
-  
-  // إدارة المنتجات
-  products: '/admin/products',
-  productStats: '/admin/products/stats',
-  productDetails: (id) => `/admin/products/${id}`,
-  featureProduct: (id) => `/admin/products/${id}/feature`,
-  updateProductImage: (id) => `/admin/products/${id}/image`,
-  toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
-  updateProductInventory: (id) => `/admin/products/${id}/inventory`,
-  
-  // إدارة الطلبات
-  orders: '/admin/orders',
-  orderDetails: (id) => `/admin/orders/${id}`,
-  ordersStatsOverview: '/admin/orders/stats/overview',
-  ordersStatsDaily: '/admin/orders/stats/daily',
-  ordersStatsMonthly: '/admin/orders/stats/monthly',
-  assignDriver: (id) => `/admin/orders/${id}/assign`,
-  reassignDriver: (id) => `/admin/orders/${id}/reassign`,
-  forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
-  
-  // إدارة المندوبين
-  drivers: '/admin/drivers',
-  driverDetails: (id) => `/admin/drivers/${id}`,
-  driverLocation: (id) => `/admin/drivers/${id}/location`,
-  driverStats: (id) => `/admin/drivers/${id}/stats`,
-  driverOrders: (id) => `/admin/drivers/${id}/orders`,
-  verifyDriver: (id) => `/admin/drivers/${id}/verify`,
-  updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
-  
-  // إدارة الإشعارات
-  sendNotification: '/admin/notifications/send',
-  campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
-  notificationsAllStats: '/admin/notifications/all/stats',
-  
-  // إدارة النظام والكاش
-  cacheStats: '/admin/cache/stats',
-  clearCache: '/admin/cache/clear',
-  clearCacheByPattern: (pattern) => `/admin/cache/clear/${encodeURIComponent(pattern)}`,
-  rateLimitStats: '/admin/rate-limit/stats',
-  resetRateLimit: (userId) => `/admin/rate-limit/reset/${userId}`,
-  clearAllRateLimits: '/admin/rate-limit/clear-all',
-  securityHeaders: '/admin/security/headers',
-  
-  // التحليلات
-  analyticsUsers: '/admin/analytics/users',
-  analyticsOrders: '/admin/analytics/orders',
-  analyticsRevenue: '/admin/analytics/revenue',
-  
-  // التقارير
-  reportsOrders: '/admin/reports/orders',
-  reportsUsers: '/admin/reports/users',
-  reportsRevenue: '/admin/reports/revenue',
-  reportsDrivers: '/admin/reports/drivers',
-  reportsStores: '/admin/reports/stores',
-  
-  // الإحصائيات المتقدمة
-  advancedStatsDaily: '/admin/advanced-stats/daily',
-  advancedStatsWeekly: '/admin/advanced-stats/weekly',
-  advancedStatsMonthly: '/admin/advanced-stats/monthly',
-  advancedStatsCustom: '/admin/advanced-stats/custom',
-};
+// ✅ مكون تحميل موحد
+const PageLoader = () => <LoadingSpinner />;
 
-// ==================== دوال مساعدة ====================
-export const buildUrl = (endpoint, params = {}) => {
-  const url = new URL(endpoint, window.location.origin);
-  Object.keys(params).forEach(key => {
-    if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-      url.searchParams.append(key, params[key]);
-    }
-  });
-  return url.pathname + url.search;
-};
+// ✅ مكون Suspense wrapper لكل صفحة
+const SuspensePage = ({ children }) => (
+  <Suspense fallback={<PageLoader />}>
+    {children}
+  </Suspense>
+);
 
-// ✅ دالة مساعدة للحصول على id بأمان (تدعم _id و id)
-export const getId = (item) => {
-  if (!item) return null;
-  return item._id || item.id || null;
-};
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+    },
+  },
+});
 
-// ✅ دالة لتوحيد المصفوفات (تحويل id إلى _id)
-export const normalizeItems = (items) => {
-  if (!Array.isArray(items)) return [];
-  return items.map(item => ({
-    ...item,
-    _id: item._id || item.id,
-  }));
-};
+function AppContent() {
+  const { mode } = useThemeContext();
+  const theme = getTheme(mode);
+  
+  return (
+    <StyledEngineProvider injectFirst>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AuthProvider>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                fontFamily: 'inherit',
+              },
+            }}
+          />
+          <Routes>
+            {/* ✅ صفحة تسجيل الدخول */}
+            <Route 
+              path="/login" 
+              element={
+                <SuspensePage>
+                  <Login />
+                </SuspensePage>
+              } 
+            />
+            
+            {/* ✅ المسارات المحمية */}
+            <Route
+              path="/"
+              element={
+                <PrivateRoute>
+                  <SuspensePage>
+                    <MainLayout />
+                  </SuspensePage>
+                </PrivateRoute>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              
+              <Route 
+                path="dashboard" 
+                element={
+                  <SuspensePage>
+                    <Dashboard />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="users" 
+                element={
+                  <SuspensePage>
+                    <Users />
+                  </SuspensePage>
+                } 
+              />
+              <Route 
+                path="users/:id" 
+                element={
+                  <SuspensePage>
+                    <Users />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="vendors" 
+                element={
+                  <SuspensePage>
+                    <Vendors />
+                  </SuspensePage>
+                } 
+              />
+              <Route 
+                path="vendors/:id" 
+                element={
+                  <SuspensePage>
+                    <Vendors />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="stores" 
+                element={
+                  <SuspensePage>
+                    <Stores />
+                  </SuspensePage>
+                } 
+              />
+              <Route 
+                path="stores/:id" 
+                element={
+                  <SuspensePage>
+                    <Stores />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="products" 
+                element={
+                  <SuspensePage>
+                    <Products />
+                  </SuspensePage>
+                } 
+              />
+              <Route 
+                path="products/:id" 
+                element={
+                  <SuspensePage>
+                    <Products />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="orders" 
+                element={
+                  <SuspensePage>
+                    <Orders />
+                  </SuspensePage>
+                } 
+              />
+              <Route 
+                path="orders/:id" 
+                element={
+                  <SuspensePage>
+                    <Orders />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="drivers" 
+                element={
+                  <SuspensePage>
+                    <Drivers />
+                  </SuspensePage>
+                } 
+              />
+              <Route 
+                path="drivers/:id" 
+                element={
+                  <SuspensePage>
+                    <Drivers />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="notifications" 
+                element={
+                  <SuspensePage>
+                    <Notifications />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="analytics" 
+                element={
+                  <SuspensePage>
+                    <Analytics />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="reports" 
+                element={
+                  <SuspensePage>
+                    <Reports />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="advanced-stats" 
+                element={
+                  <SuspensePage>
+                    <AdvancedStats />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="system" 
+                element={
+                  <SuspensePage>
+                    <System />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="map" 
+                element={
+                  <SuspensePage>
+                    <MapPage />
+                  </SuspensePage>
+                } 
+              />
+              
+              <Route 
+                path="*" 
+                element={
+                  <SuspensePage>
+                    <NotFound />
+                  </SuspensePage>
+                } 
+              />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
+    </StyledEngineProvider>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeContextProvider>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
+            <AppContent />
+          </BrowserRouter>
+        </ThemeContextProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
 </file>
 
 <file path="src/components/Map/OrderTrackingMap.jsx">
@@ -12140,6 +12182,304 @@ export default function Vendors() {
     </Box>
   );
 }
+</file>
+
+<file path="vite.config.js">
+// vite.config.js
+
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000,
+    open: true,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        // ✅ تحسين تجزئة الملفات لتقليل حجم الحزمة
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'mui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          'chart-vendor': ['recharts'],
+          'map-vendor': ['mapbox-gl'],
+          'form-vendor': ['formik', 'yup'],
+          'query-vendor': ['react-query'],
+        },
+        // ✅ تأكد من أن الملفات تنشأ بشكل صحيح
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    },
+    // ✅ تأكد من تحويل CSS بشكل صحيح
+    cssCodeSplit: true,
+    // ✅ تحسين حجم الملفات
+    target: 'es2020',
+    chunkSizeWarningLimit: 1000,
+  },
+  resolve: {
+    alias: {
+      '@': '/src',
+    },
+  },
+  base: '/',
+  // ✅ تحسين الأداء
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', '@mui/material', '@mui/icons-material'],
+  },
+});
+</file>
+
+<file path="index.html">
+<!DOCTYPE html>
+<html lang="ar">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/icon.png"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Admin Dashboard - Food Delivery Platform Management System" />
+    <title>Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- ✅ إضافة مؤشر تحميل أولي -->
+    <style>
+      #root {
+        min-height: 100vh;
+      }
+      .initial-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f5f5f5;
+        font-family: 'Inter', sans-serif;
+      }
+      .initial-loader .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #e0e0e0;
+        border-top-color: #d25419;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="initial-loader">
+        <div class="spinner"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="src/api/endpoints.js">
+// src/api/endpoints.js - النسخة المصححة بالكامل
+
+// ==================== نقاط نهاية المصادقة ====================
+export const authEndpoints = {
+  login: '/auth/login',
+  register: '/auth/register',
+  logout: '/auth/logout',
+  refresh: '/auth/refresh',
+  verify: '/auth/verify',
+  resendVerification: '/auth/resend-verification',
+  forgotPassword: '/auth/forgot-password',
+  resetPassword: '/auth/reset-password',
+  changePassword: '/auth/change-password',
+  validateToken: '/auth/validate',
+  revokeAllSessions: '/auth/revoke-all-sessions',
+};
+
+// ==================== نقاط نهاية الخرائط ====================
+export const mapEndpoints = {
+  // المسارات
+  directions: '/map/directions',
+  distance: '/map/distance',
+  staticMap: '/map/static',
+  
+  // البحث عن العناوين
+  geocode: '/map/geocode',
+  reverseGeocode: '/map/reverse-geocode',
+  
+  // المتاجر
+  stores: '/map/stores',
+  storeIsochrone: (storeId) => `/map/store/${storeId}/isochrone`,
+  nearestDriver: '/map/store/nearest-driver',
+  
+  // المندوبين
+  driverLocation: '/map/driver/location',
+  trackDriver: (driverId) => `/map/driver/${driverId}/track`,
+  allDriversLocations: '/map/drivers/locations',
+  trackAllDrivers: '/map/drivers/track-all',
+  nearestDriverAdmin: '/map/nearest-driver',
+  
+  // الطلبات
+  orderRoute: (orderId) => `/map/order/${orderId}/route`,
+  driverCurrentRoute: '/map/driver/current-route',
+};
+
+// ==================== نقاط نهاية الأدمن ====================
+export const adminEndpoints = {
+  // لوحة التحكم والإحصائيات
+  dashboard: '/admin/dashboard',
+  stats: '/admin/stats',
+  statsUsers: '/admin/stats/users',
+  statsOrders: '/admin/stats/orders',
+  statsRevenue: '/admin/stats/revenue',
+  
+  // إدارة المستخدمين
+  users: '/admin/users',
+  userDetails: (id) => `/admin/users/${id}`,
+  
+  // إدارة التجار
+  vendors: '/admin/vendors',
+  vendorDetails: (id) => `/admin/vendors/${id}`,
+  verifyVendor: (id) => `/admin/vendors/${id}/verify`,
+  updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
+  
+  // إدارة المتاجر
+  stores: '/admin/stores',
+  storeDetails: (id) => `/admin/stores/${id}`,
+  verifyStore: (id) => `/admin/stores/${id}/verify`,
+  toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
+  updateStoreCoordinates: '/admin/stores/update-coordinates',
+  
+  // إدارة المنتجات
+  products: '/admin/products',
+  productStats: '/admin/products/stats',
+  productDetails: (id) => `/admin/products/${id}`,
+  featureProduct: (id) => `/admin/products/${id}/feature`,
+  updateProductImage: (id) => `/admin/products/${id}/image`,
+  toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
+  updateProductInventory: (id) => `/admin/products/${id}/inventory`,
+  
+  // إدارة الطلبات
+  orders: '/admin/orders',
+  orderDetails: (id) => `/admin/orders/${id}`,
+  ordersStatsOverview: '/admin/orders/stats/overview',
+  ordersStatsDaily: '/admin/orders/stats/daily',
+  ordersStatsMonthly: '/admin/orders/stats/monthly',
+  assignDriver: (id) => `/admin/orders/${id}/assign`,
+  reassignDriver: (id) => `/admin/orders/${id}/reassign`,
+  forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
+  
+  // إدارة المندوبين
+  drivers: '/admin/drivers',
+  driverDetails: (id) => `/admin/drivers/${id}`,
+  driverLocation: (id) => `/admin/drivers/${id}/location`,
+  driverStats: (id) => `/admin/drivers/${id}/stats`,
+  driverOrders: (id) => `/admin/drivers/${id}/orders`,
+  verifyDriver: (id) => `/admin/drivers/${id}/verify`,
+  updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
+  
+  // إدارة الإشعارات
+  sendNotification: '/admin/notifications/send',
+  campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
+  notificationsAllStats: '/admin/notifications/all/stats',
+  
+  // إدارة النظام والكاش
+  cacheStats: '/admin/cache/stats',
+  clearCache: '/admin/cache/clear',
+  clearCacheByPattern: (pattern) => `/admin/cache/clear/${encodeURIComponent(pattern)}`,
+  rateLimitStats: '/admin/rate-limit/stats',
+  resetRateLimit: (userId) => `/admin/rate-limit/reset/${userId}`,
+  clearAllRateLimits: '/admin/rate-limit/clear-all',
+  securityHeaders: '/admin/security/headers',
+  
+  // التحليلات
+  analyticsUsers: '/admin/analytics/users',
+  analyticsOrders: '/admin/analytics/orders',
+  analyticsRevenue: '/admin/analytics/revenue',
+  
+  // التقارير
+  reportsOrders: '/admin/reports/orders',
+  reportsUsers: '/admin/reports/users',
+  reportsRevenue: '/admin/reports/revenue',
+  reportsDrivers: '/admin/reports/drivers',
+  reportsStores: '/admin/reports/stores',
+  
+  // الإحصائيات المتقدمة
+  advancedStatsDaily: '/admin/advanced-stats/daily',
+  advancedStatsWeekly: '/admin/advanced-stats/weekly',
+  advancedStatsMonthly: '/admin/advanced-stats/monthly',
+  advancedStatsCustom: '/admin/advanced-stats/custom',
+};
+
+
+// ==================== دوال مساعدة ====================
+export const buildUrl = (endpoint, params = {}) => {
+  const url = new URL(endpoint, window.location.origin);
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+      url.searchParams.append(key, params[key]);
+    }
+  });
+  return url.pathname + url.search;
+};
+
+/**
+ * الحصول على ID بأمان (يدعم _id و id)
+ * @param {Object} item - العنصر
+ * @returns {string|null} - الـ ID أو null
+ */
+export const getId = (item) => {
+  if (!item) return null;
+  return item._id || item.id || null;
+};
+
+/**
+ * توحيد المصفوفات (تحويل id إلى _id)
+ * @param {Array} items - المصفوفة
+ * @returns {Array} - مصفوفة مع توحيد الـ IDs
+ */
+export const normalizeItems = (items) => {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => ({
+    ...item,
+    _id: item._id || item.id,
+  }));
+};
+
+/**
+ * الحصول على قيمة بأمان من كائن
+ * @param {Object} obj - الكائن
+ * @param {string} path - المسار
+ * @param {any} defaultValue - القيمة الافتراضية
+ * @returns {any}
+ */
+export const getSafeValue = (obj, path, defaultValue = '') => {
+  if (!obj || !path) return defaultValue;
+  
+  const keys = path.split('.');
+  let result = obj;
+  
+  for (const key of keys) {
+    if (result === undefined || result === null) {
+      return defaultValue;
+    }
+    result = result[key];
+  }
+  
+  return result !== undefined && result !== null ? result : defaultValue;
+};
 </file>
 
 <file path="src/components/Map/DriverLocationMap.jsx">

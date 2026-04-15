@@ -1,5 +1,3 @@
-// src/pages/Stores/index.jsx - نسخة مصححة بالكامل
-
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
@@ -38,6 +36,7 @@ import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
 import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 import { useResponsive } from '../../hooks/useResponsive';
 import StoreForm from './components/StoreForm';
+import StoreDetails from './components/StoreDetails'; // ✅ استيراد مكون StoreDetails
 import { formatDate } from '../../utils/formatters';
 import { getId, handleError } from '../../utils/helpers';
 
@@ -137,7 +136,7 @@ export default function Stores() {
     }
   );
 
-  // ✅ دوال المعالجة
+  // دوال المعالجة
   const handleViewDetails = useCallback((store) => {
     setSelectedStore(store);
     setOpenDetails(true);
@@ -176,12 +175,12 @@ export default function Stores() {
     setPage(0);
   }, []);
 
-  // ✅ إحصائيات سريعة
+  // إحصائيات سريعة
   const statsCards = useMemo(() => {
     const activeStores = stores.filter(s => s.isOpen).length;
     const verifiedStores = stores.filter(s => s.isVerified).length;
     const avgRating = stores.length > 0 
-      ? (stores.reduce((sum, s) => sum + (s.rating || 0), 0) / stores.length).toFixed(1)
+      ? (stores.reduce((sum, s) => sum + (s.averageRating || 0), 0) / stores.length).toFixed(1)
       : '0';
     
     return [
@@ -192,7 +191,7 @@ export default function Stores() {
     ];
   }, [stores, totalCount]);
 
-  // ✅ أعمدة الجدول
+  // أعمدة الجدول
   const columns = useMemo(() => [
     {
       field: 'logo',
@@ -205,11 +204,30 @@ export default function Stores() {
       ),
     },
     { field: 'name', headerName: 'اسم المتجر', width: 180 },
+    { 
+      field: 'owner', 
+      headerName: 'المالك (التاجر)', 
+      width: 150,
+      renderCell: (params) => {
+        const owner = params.row.owner;
+        if (!owner) return '-';
+        if (typeof owner === 'object') {
+          return (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Avatar src={owner.avatar} sx={{ width: 24, height: 24 }}>
+                {owner.name?.charAt(0)}
+              </Avatar>
+              <Typography variant="body2">{owner.name}</Typography>
+            </Box>
+          );
+        }
+        return owner;
+      }
+    },
     { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
-    { field: 'email', headerName: 'البريد الإلكتروني', width: 180 },
     { field: 'category', headerName: 'التصنيف', width: 120 },
     {
-      field: 'rating',
+      field: 'averageRating',
       headerName: 'التقييم',
       width: 120,
       renderCell: (params) => (
@@ -239,7 +257,7 @@ export default function Stores() {
     {
       field: 'actions',
       headerName: 'الإجراءات',
-      width: 200,
+      width: 250,
       hideOnDesktop: false,
       renderCell: (params) => {
         const store = params.row;
@@ -369,6 +387,7 @@ export default function Stores() {
           emptyMessage="لا توجد متاجر"
           renderMobileCard={(store) => {
             const storeId = getId(store);
+            const ownerName = typeof store.owner === 'object' ? store.owner?.name : (store.owner || 'غير محدد');
             return (
               <Paper 
                 key={storeId} 
@@ -397,10 +416,13 @@ export default function Stores() {
                       {store.phone}
                     </Typography>
                     <Typography variant="caption" color="textSecondary" display="block">
+                      المالك: {ownerName}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary" display="block">
                       {store.category}
                     </Typography>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                      <Rating value={store.rating || 0} readOnly size="small" />
+                      <Rating value={store.averageRating || 0} readOnly size="small" />
                       {store.isVerified && <Verified fontSize="small" color="primary" />}
                     </Box>
                   </Box>
@@ -452,51 +474,16 @@ export default function Stores() {
         />
       </ResponsiveDialog>
 
-      {/* تفاصيل المتجر */}
+      {/* ✅ تفاصيل المتجر - استخدام مكون StoreDetails المستقل */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
         title="تفاصيل المتجر"
         maxWidth="md"
+        fullScreenOnMobile={true}
         actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
       >
-        {selectedStore && (
-          <Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4} textAlign="center">
-                <Avatar src={selectedStore.logo || '/placeholder-store.jpg'} sx={{ width: 100, height: 100, mx: 'auto' }}>
-                  {selectedStore.name?.charAt(0)}
-                </Avatar>
-                <Typography variant="h6" sx={{ mt: 2 }}>{selectedStore.name}</Typography>
-                <Rating value={selectedStore.rating || 0} readOnly precision={0.5} />
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <Typography variant="body1" gutterBottom>
-                  <strong>الوصف:</strong> {selectedStore.description || '-'}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>التصنيف:</strong> {selectedStore.category}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>رقم الهاتف:</strong> {selectedStore.phone}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>البريد الإلكتروني:</strong> {selectedStore.email || '-'}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>العنوان:</strong> {selectedStore.address?.city || '-'}, {selectedStore.address?.country || '-'}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>تاريخ التسجيل:</strong> {formatDate(selectedStore.createdAt)}
-                </Typography>
-                <Box display="flex" gap={1} mt={2}>
-                  <Chip label={selectedStore.isVerified ? 'موثق' : 'غير موثق'} color={selectedStore.isVerified ? 'primary' : 'default'} />
-                  <Chip label={selectedStore.isOpen ? 'مفتوح' : 'مغلق'} color={selectedStore.isOpen ? 'success' : 'error'} />
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
+        <StoreDetails store={selectedStore} />
       </ResponsiveDialog>
 
       {/* حوار تأكيد الحذف */}
