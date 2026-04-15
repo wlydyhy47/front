@@ -7,11 +7,11 @@ export default function StoreDetails({ store }) {
   if (!store) return null;
 
   // استخراج معلومات المالك (التاجر)
-  const owner = store.owner;
-  const ownerName = typeof owner === 'object' ? owner?.name : (owner || 'غير محدد');
-  const ownerPhone = typeof owner === 'object' ? owner?.phone : null;
-  const ownerEmail = typeof owner === 'object' ? owner?.email : null;
-  const ownerIsVerified = typeof owner === 'object' ? owner?.isVerified : false;
+  const vendor = store.vendor;
+  const vendorName = typeof vendor === 'object' ? vendor?.name : (vendor || 'غير محدد');
+  const vendorPhone = typeof vendor === 'object' ? vendor?.phone : null;
+  const vendorEmail = typeof vendor === 'object' ? vendor?.email : null;
+  const vendorIsVerified = typeof vendor === 'object' ? vendor?.isVerified : false;
 
   return (
     <Box>
@@ -19,8 +19,8 @@ export default function StoreDetails({ store }) {
         <Grid container spacing={3}>
           {/* القسم الأيمن - الشعار والمعلومات الأساسية */}
           <Grid item xs={12} md={4} textAlign="center">
-            <Avatar 
-              src={store.logo} 
+            <Avatar
+              src={store.logo}
               sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
             >
               {store.name?.charAt(0)}
@@ -32,25 +32,25 @@ export default function StoreDetails({ store }) {
                 ({store.ratingsCount || 0})
               </Typography>
             </Box>
-            
+
             {/* حالة المتجر */}
             <Box display="flex" justifyContent="center" gap={1} mt={2}>
-              <Chip 
-                label={store.isVerified ? 'موثق' : 'غير موثق'} 
-                color={store.isVerified ? 'primary' : 'default'} 
+              <Chip
+                label={store.isVerified ? 'موثق' : 'غير موثق'}
+                color={store.isVerified ? 'primary' : 'default'}
                 size="small"
               />
-              <Chip 
-                label={store.isOpen ? 'مفتوح' : 'مغلق'} 
-                color={store.isOpen ? 'success' : 'error'} 
+              <Chip
+                label={store.isOpen ? 'مفتوح' : 'مغلق'}
+                color={store.isOpen ? 'success' : 'error'}
                 size="small"
               />
             </Box>
-            
+
             {store.deliveryInfo?.hasDelivery && (
-              <Chip 
-                label={`توصيل: ${store.deliveryInfo.deliveryFee} CFA`} 
-                color="info" 
+              <Chip
+                label={`توصيل: ${store.deliveryInfo.deliveryFee} CFA`}
+                color="info"
                 size="small"
                 variant="outlined"
                 sx={{ mt: 1 }}
@@ -65,7 +65,7 @@ export default function StoreDetails({ store }) {
               <Storefront fontSize="small" color="primary" />
               معلومات المتجر
             </Typography>
-            
+
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12}>
                 <Typography variant="body1" gutterBottom>
@@ -107,10 +107,10 @@ export default function StoreDetails({ store }) {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* معلومات المالك (التاجر) */}
+            {/* معلومات التاجر (المالك) */}
             <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Person fontSize="small" color="secondary" />
-              معلومات المالك (التاجر)
+              معلومات التاجر
             </Typography>
 
             <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -118,17 +118,17 @@ export default function StoreDetails({ store }) {
                 <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
                   <Grid container spacing={2} alignItems="center">
                     <Grid item xs={12} sm={3} textAlign="center">
-                      <Avatar 
-                        src={typeof owner === 'object' ? owner?.avatar : null} 
+                      <Avatar
+                        src={typeof vendor === 'object' ? vendor?.avatar : null}
                         sx={{ width: 64, height: 64, mx: 'auto' }}
                       >
-                        {ownerName?.charAt(0) || 'T'}
+                        {vendorName?.charAt(0) || 'T'}
                       </Avatar>
-                      {ownerIsVerified && (
-                        <Chip 
-                          label="موثق" 
-                          size="small" 
-                          color="success" 
+                      {vendorIsVerified && (
+                        <Chip
+                          label="موثق"
+                          size="small"
+                          color="success"
                           icon={<Verified fontSize="small" />}
                           sx={{ mt: 1 }}
                         />
@@ -136,19 +136,19 @@ export default function StoreDetails({ store }) {
                     </Grid>
                     <Grid item xs={12} sm={9}>
                       <Typography variant="body1" gutterBottom>
-                        <strong>الاسم:</strong> {ownerName}
+                        <strong>الاسم:</strong> {vendorName}
                       </Typography>
-                      {ownerPhone && (
+                      {vendorPhone && (
                         <Typography variant="body1" gutterBottom>
-                          <strong>رقم الهاتف:</strong> {ownerPhone}
+                          <strong>رقم الهاتف:</strong> {vendorPhone}
                         </Typography>
                       )}
-                      {ownerEmail && (
+                      {vendorEmail && (
                         <Typography variant="body1" gutterBottom>
-                          <strong>البريد الإلكتروني:</strong> {ownerEmail}
+                          <strong>البريد الإلكتروني:</strong> {vendorEmail}
                         </Typography>
                       )}
-                      {!ownerPhone && !ownerEmail && (
+                      {!vendorPhone && !vendorEmail && (
                         <Typography variant="body2" color="textSecondary">
                           لا توجد معلومات إضافية متاحة
                         </Typography>

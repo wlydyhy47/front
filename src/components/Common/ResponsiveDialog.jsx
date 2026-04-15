@@ -1,7 +1,7 @@
-// src/components/Common/ResponsiveDialog.jsx - نسخة مصححة
+// src/components/Common/ResponsiveDialog.jsx - نسخة محسنة
 
 import { Dialog, DialogTitle, DialogContent, DialogActions, useTheme, useMediaQuery } from '@mui/material';
-import { memo } from 'react'; // ✅ استيراد memo من react
+import { memo } from 'react';
 
 /**
  * مكون حوار متجاوب - يتكيف مع حجم الشاشة

@@ -1,3 +1,5 @@
+// src/pages/Stores/index.jsx - نسخة كاملة مع _id
+
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
@@ -36,9 +38,9 @@ import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
 import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
 import { useResponsive } from '../../hooks/useResponsive';
 import StoreForm from './components/StoreForm';
-import StoreDetails from './components/StoreDetails'; // ✅ استيراد مكون StoreDetails
+import StoreDetails from './components/StoreDetails';
 import { formatDate } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
 const categories = [
   { value: 'all', label: 'الكل' },
@@ -53,7 +55,7 @@ const categories = [
 export default function Stores() {
   const { isMobile, fontSize, spacing } = useResponsive();
   const queryClient = useQueryClient();
-  
+
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
   const [filters, setFilters] = useState({
@@ -67,7 +69,6 @@ export default function Stores() {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // جلب المتاجر
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['stores', page, pageSize, filters],
     () => storesService.getStores({
@@ -80,10 +81,10 @@ export default function Stores() {
     {
       keepPreviousData: true,
       onError: (error) => {
-        setSnackbar({ 
-          open: true, 
-          message: handleError(error, 'فشل تحميل بيانات المتاجر'), 
-          severity: 'error' 
+        setSnackbar({
+          open: true,
+          message: handleError(error, 'فشل تحميل بيانات المتاجر'),
+          severity: 'error'
         });
       }
     }
@@ -93,9 +94,8 @@ export default function Stores() {
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
-  // حذف متجر
   const deleteMutation = useMutation(
-    (id) => storesService.deleteStore(id),
+    (storeId) => storesService.deleteStore(storeId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('stores');
@@ -108,9 +108,8 @@ export default function Stores() {
     }
   );
 
-  // توثيق متجر
   const verifyMutation = useMutation(
-    (id) => storesService.verifyStore(id),
+    (storeId) => storesService.verifyStore(storeId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('stores');
@@ -122,9 +121,8 @@ export default function Stores() {
     }
   );
 
-  // تغيير حالة المتجر
   const toggleStatusMutation = useMutation(
-    (id) => storesService.toggleStoreStatus(id),
+    (storeId) => storesService.toggleStoreStatus(storeId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('stores');
@@ -136,7 +134,6 @@ export default function Stores() {
     }
   );
 
-  // دوال المعالجة
   const handleViewDetails = useCallback((store) => {
     setSelectedStore(store);
     setOpenDetails(true);
@@ -153,16 +150,16 @@ export default function Stores() {
   }, []);
 
   const handleVerify = useCallback((store) => {
-    verifyMutation.mutate(getId(store));
+    verifyMutation.mutate(store._id);
   }, [verifyMutation]);
 
   const handleToggleStatus = useCallback((store) => {
-    toggleStatusMutation.mutate(getId(store));
+    toggleStatusMutation.mutate(store._id);
   }, [toggleStatusMutation]);
 
   const confirmDelete = useCallback(() => {
     if (selectedStore) {
-      deleteMutation.mutate(getId(selectedStore));
+      deleteMutation.mutate(selectedStore._id);
     }
   }, [selectedStore, deleteMutation]);
 
@@ -175,14 +172,13 @@ export default function Stores() {
     setPage(0);
   }, []);
 
-  // إحصائيات سريعة
   const statsCards = useMemo(() => {
     const activeStores = stores.filter(s => s.isOpen).length;
     const verifiedStores = stores.filter(s => s.isVerified).length;
-    const avgRating = stores.length > 0 
+    const avgRating = stores.length > 0
       ? (stores.reduce((sum, s) => sum + (s.averageRating || 0), 0) / stores.length).toFixed(1)
       : '0';
-    
+
     return [
       { title: 'إجمالي المتاجر', value: totalCount, icon: Storefront, color: '#2196f3' },
       { title: 'متاجر نشطة', value: activeStores, icon: ToggleOn, color: '#4caf50' },
@@ -191,7 +187,6 @@ export default function Stores() {
     ];
   }, [stores, totalCount]);
 
-  // أعمدة الجدول
   const columns = useMemo(() => [
     {
       field: 'logo',
@@ -204,24 +199,24 @@ export default function Stores() {
       ),
     },
     { field: 'name', headerName: 'اسم المتجر', width: 180 },
-    { 
-      field: 'owner', 
-      headerName: 'المالك (التاجر)', 
+    {
+      field: 'vendor',  
+      headerName: 'التاجر',  
       width: 150,
       renderCell: (params) => {
-        const owner = params.row.owner;
-        if (!owner) return '-';
-        if (typeof owner === 'object') {
+        const vendor = params.row.vendor; 
+        if (!vendor) return '-';
+        if (typeof vendor === 'object') {
           return (
             <Box display="flex" alignItems="center" gap={1}>
-              <Avatar src={owner.avatar} sx={{ width: 24, height: 24 }}>
-                {owner.name?.charAt(0)}
+              <Avatar src={vendor.avatar} sx={{ width: 24, height: 24 }}>
+                {vendor.name?.charAt(0)}
               </Avatar>
-              <Typography variant="body2">{owner.name}</Typography>
+              <Typography variant="body2">{vendor.name}</Typography>
             </Box>
           );
         }
-        return owner;
+        return vendor;
       }
     },
     { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
@@ -302,8 +297,8 @@ export default function Stores() {
         إدارة المتاجر
       </Typography>
 
-      <ResponsiveStatsCards 
-        cards={statsCards} 
+      <ResponsiveStatsCards
+        cards={statsCards}
         columnsDesktop={4}
         columnsTablet={2}
         columnsMobile={2}
@@ -385,78 +380,73 @@ export default function Stores() {
             setOpenDetails(true);
           }}
           emptyMessage="لا توجد متاجر"
-          renderMobileCard={(store) => {
-            const storeId = getId(store);
-            const ownerName = typeof store.owner === 'object' ? store.owner?.name : (store.owner || 'غير محدد');
-            return (
-              <Paper 
-                key={storeId} 
-                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
-                onClick={() => {
-                  setSelectedStore(store);
-                  setOpenDetails(true);
-                }}
-              >
-                <Box display="flex" gap={2}>
-                  <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
-                    {store.name?.charAt(0)}
-                  </Avatar>
-                  <Box flex={1}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {store.name}
-                      </Typography>
-                      <Chip
-                        label={store.isOpen ? 'مفتوح' : 'مغلق'}
-                        size="small"
-                        color={store.isOpen ? 'success' : 'error'}
-                      />
-                    </Box>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      {store.phone}
+          renderMobileCard={(store, index) => (
+            <Paper
+              key={getReactKey(store, index)}
+              sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }}
+              onClick={() => {
+                setSelectedStore(store);
+                setOpenDetails(true);
+              }}
+            >
+              <Box display="flex" gap={2}>
+                <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
+                  {store.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {store.name}
                     </Typography>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      المالك: {ownerName}
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      {store.category}
-                    </Typography>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                      <Rating value={store.averageRating || 0} readOnly size="small" />
-                      {store.isVerified && <Verified fontSize="small" color="primary" />}
-                    </Box>
+                    <Chip
+                      label={store.isOpen ? 'مفتوح' : 'مغلق'}
+                      size="small"
+                      color={store.isOpen ? 'success' : 'error'}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {store.phone}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    المالك: {typeof store.vendor === 'object' ? store.vendor?.name : (store.vendor || 'غير محدد')}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {store.category}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Rating value={store.averageRating || 0} readOnly size="small" />
+                    {store.isVerified && <Verified fontSize="small" color="primary" />}
                   </Box>
                 </Box>
-                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
-                  {!store.isVerified && (
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleVerify(store);
-                      }}
-                      color="primary"
-                    >
-                      <Verified fontSize="small" />
-                    </IconButton>
-                  )}
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      handleToggleStatus(store);
+              </Box>
+              <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                {!store.isVerified && (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVerify(store);
                     }}
+                    color="primary"
                   >
-                    {store.isOpen ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
+                    <Verified fontSize="small" />
                   </IconButton>
-                </Box>
-              </Paper>
-            );
-          }}
+                )}
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleStatus(store);
+                  }}
+                >
+                  {store.isOpen ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
+                </IconButton>
+              </Box>
+            </Paper>
+          )}
         />
       </Paper>
 
-      {/* نموذج إضافة/تعديل متجر */}
       <ResponsiveDialog
         open={openForm}
         onClose={() => setOpenForm(false)}
@@ -474,7 +464,6 @@ export default function Stores() {
         />
       </ResponsiveDialog>
 
-      {/* ✅ تفاصيل المتجر - استخدام مكون StoreDetails المستقل */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
@@ -486,7 +475,6 @@ export default function Stores() {
         <StoreDetails store={selectedStore} />
       </ResponsiveDialog>
 
-      {/* حوار تأكيد الحذف */}
       <ResponsiveDialog
         open={openDeleteDialog}
         onClose={() => setOpenDeleteDialog(false)}
@@ -506,10 +494,9 @@ export default function Stores() {
         </Typography>
       </ResponsiveDialog>
 
-      {/* إشعارات */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

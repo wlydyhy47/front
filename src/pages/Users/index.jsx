@@ -1,4 +1,4 @@
-// src/pages/Users/index.jsx - نسخة مصححة بالكامل
+// src/pages/Users/index.jsx - نسخة كاملة مع _id
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -107,7 +107,6 @@ export default function Users() {
 
   const debouncedSearch = useDebounce(search, 500);
 
-  // ✅ استخدام useCallback للدوال
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['users', page, rowsPerPage, debouncedSearch, roleFilter, statusFilter],
     () => usersService.getUsers({
@@ -127,7 +126,7 @@ export default function Users() {
   const stats = data?.stats || {};
 
   const deleteMutation = useMutation(
-    (id) => usersService.deleteUser(id),
+    (userId) => usersService.deleteUser(userId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -141,7 +140,7 @@ export default function Users() {
   );
 
   const toggleStatusMutation = useMutation(
-    ({ id, isActive }) => usersService.updateUser(id, { isActive: !isActive }),
+    ({ userId, isActive }) => usersService.updateUser(userId, { isActive: !isActive }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -153,7 +152,6 @@ export default function Users() {
     }
   );
 
-  // ✅ استخدام useCallback للدوال
   const handleViewDetails = useCallback((user) => {
     setSelectedUser(user);
     setOpenDetails(true);
@@ -170,12 +168,12 @@ export default function Users() {
   }, []);
 
   const handleToggleStatus = useCallback((user) => {
-    toggleStatusMutation.mutate({ id: getId(user), isActive: user.isActive });
+    toggleStatusMutation.mutate({ userId: user._id, isActive: user.isActive });
   }, [toggleStatusMutation]);
 
   const confirmDelete = useCallback(() => {
     if (selectedUser) {
-      deleteMutation.mutate(getId(selectedUser));
+      deleteMutation.mutate(selectedUser._id);
     }
   }, [selectedUser, deleteMutation]);
 
@@ -195,7 +193,6 @@ export default function Users() {
     setShowFilters(false);
   }, []);
 
-  // ✅ استخدام useMemo للحصول على الإحصائيات
   const statsCards = useMemo(() => [
     { label: 'إجمالي المستخدمين', value: stats?.total || 0, color: '#1976d2', icon: People },
     { label: 'مستخدمين نشطين', value: stats?.active || 0, color: '#4caf50', icon: CheckCircle },
@@ -203,8 +200,7 @@ export default function Users() {
     { label: 'الأدوار المتاحة', value: stats?.byRole?.length || 0, color: '#9c27b0', icon: Person },
   ], [stats]);
 
-  // ✅ عرض الجدول للشاشات المتوسطة والكبيرة
-  const renderDesktopTable = useCallback(() => {
+  const renderDesktopTable = () => {
     if (isLoading) {
       return (
         <Box display="flex" justifyContent="center" py={4}>
@@ -229,11 +225,10 @@ export default function Users() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => {
+              {users.map((user, index) => {
                 const RoleIcon = roleConfig[user.role]?.icon || Person;
-                const userId = getId(user);
                 return (
-                  <TableRow key={userId} hover>
+                  <TableRow key={getReactKey(user, index)} hover>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
                         <Avatar src={user.image} sx={{ width: 32, height: 32 }}>
@@ -310,10 +305,9 @@ export default function Users() {
         />
       </>
     );
-  }, [isLoading, isTablet, users, totalCount, rowsPerPage, page, handleViewDetails, handleEdit, handleToggleStatus, handleDelete, handleChangePage, handleChangeRowsPerPage]);
+  };
 
-  // ✅ عرض البطاقات للهواتف
-  const renderMobileCards = useCallback(() => {
+  const renderMobileCards = () => {
     if (isLoading) {
       return (
         <Box textAlign="center" py={4}>
@@ -332,11 +326,10 @@ export default function Users() {
 
     return (
       <List sx={{ width: '100%', p: 0 }}>
-        {users.map((user) => {
+        {users.map((user, index) => {
           const RoleIcon = roleConfig[user.role]?.icon || Person;
-          const userId = getId(user);
           return (
-            <Card key={userId} sx={{ mb: 2, p: 1.5 }}>
+            <Card key={getReactKey(user, index)} sx={{ mb: 2, p: 1.5 }}>
               <Box display="flex" alignItems="center" gap={2}>
                 <Avatar src={user.image} sx={{ width: 48, height: 48 }}>
                   {user.name?.charAt(0)}
@@ -440,7 +433,7 @@ export default function Users() {
         )}
       </List>
     );
-  }, [isLoading, users, totalCount, rowsPerPage, page, handleViewDetails, handleEdit, handleToggleStatus, handleDelete]);
+  };
 
   return (
     <Box 
@@ -451,7 +444,6 @@ export default function Users() {
         overflowX: 'hidden',
       }}
     >
-      {/* بطاقات الإحصائيات */}
       <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
         {statsCards.map((stat, index) => (
           <Grid item xs={6} sm={6} md={3} key={index}>
@@ -475,7 +467,6 @@ export default function Users() {
       </Grid>
 
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
-        {/* شريط العنوان والأزرار */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             إدارة المستخدمين
@@ -514,7 +505,6 @@ export default function Users() {
           </Box>
         </Box>
 
-        {/* فلاتر البحث */}
         <Collapse in={!isMobile || showFilters}>
           <Box mb={2}>
             <Grid container spacing={1.5}>
@@ -581,11 +571,9 @@ export default function Users() {
           </Box>
         </Collapse>
 
-        {/* عرض حسب نوع الجهاز */}
         {isMobile ? renderMobileCards() : renderDesktopTable()}
       </Paper>
 
-      {/* نموذج إضافة/تعديل مستخدم */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
         <DialogTitle>{selectedUser ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}</DialogTitle>
         <DialogContent>
@@ -601,7 +589,6 @@ export default function Users() {
         </DialogContent>
       </Dialog>
 
-      {/* تفاصيل المستخدم */}
       <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
         <DialogTitle>تفاصيل المستخدم</DialogTitle>
         <DialogContent dividers>
@@ -612,7 +599,6 @@ export default function Users() {
         </DialogActions>
       </Dialog>
 
-      {/* حوار تأكيد الحذف */}
       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
         <DialogTitle>تأكيد الحذف</DialogTitle>
         <DialogContent>
@@ -626,7 +612,6 @@ export default function Users() {
         </DialogActions>
       </Dialog>
 
-      {/* إشعارات */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={6000} 

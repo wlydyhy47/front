@@ -1,4 +1,4 @@
-// src/pages/Drivers/index.jsx - نسخة مصححة بالكامل
+// src/pages/Drivers/index.jsx - نسخة كاملة مع _id
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -40,7 +40,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import DriverDetails from './components/DriverDetails';
 import DriverLocation from './components/DriverLocation';
 import { formatDate, formatCurrency } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
 export default function Drivers() {
   const { isMobile, fontSize, spacing } = useResponsive();
@@ -59,7 +59,6 @@ export default function Drivers() {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // جلب المندوبين
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['drivers', page, pageSize, filters],
     () => driversService.getDrivers({
@@ -84,9 +83,8 @@ export default function Drivers() {
   const drivers = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
 
-  // تحديث حالة المندوب
   const updateStatusMutation = useMutation(
-    ({ id, isActive }) => driversService.updateDriverStatus(id, { isActive }),
+    ({ driverId, isActive }) => driversService.updateDriverStatus(driverId, { isActive }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('drivers');
@@ -98,9 +96,8 @@ export default function Drivers() {
     }
   );
 
-  // توثيق المندوب
   const verifyMutation = useMutation(
-    (id) => driversService.verifyDriver(id),
+    (driverId) => driversService.verifyDriver(driverId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('drivers');
@@ -112,7 +109,6 @@ export default function Drivers() {
     }
   );
 
-  // ✅ دوال المعالجة
   const handleViewDetails = useCallback((driver) => {
     setSelectedDriver(driver);
     setOpenDetails(true);
@@ -124,11 +120,11 @@ export default function Drivers() {
   }, []);
 
   const handleToggleStatus = useCallback((driver) => {
-    updateStatusMutation.mutate({ id: getId(driver), isActive: !driver.isActive });
+    updateStatusMutation.mutate({ driverId: driver._id, isActive: !driver.isActive });
   }, [updateStatusMutation]);
 
   const handleVerify = useCallback((driver) => {
-    verifyMutation.mutate(getId(driver));
+    verifyMutation.mutate(driver._id);
   }, [verifyMutation]);
 
   const resetFilters = useCallback(() => {
@@ -140,7 +136,6 @@ export default function Drivers() {
     setPage(0);
   }, []);
 
-  // ✅ إحصائيات سريعة
   const statsCards = useMemo(() => {
     const activeDrivers = drivers.filter(d => d.isActive).length;
     const onlineDrivers = drivers.filter(d => d.isOnline).length;
@@ -154,7 +149,6 @@ export default function Drivers() {
     ];
   }, [drivers, totalCount]);
 
-  // ✅ أعمدة الجدول
   const columns = useMemo(() => [
     {
       field: 'avatar',
@@ -208,7 +202,6 @@ export default function Drivers() {
       hideOnDesktop: false,
       renderCell: (params) => {
         const driver = params.row;
-        const driverId = getId(driver);
         return (
           <Box display="flex" gap={0.5}>
             <Tooltip title="عرض التفاصيل">
@@ -319,80 +312,76 @@ export default function Drivers() {
             setOpenDetails(true);
           }}
           emptyMessage="لا يوجد مندوبين"
-          renderMobileCard={(driver) => {
-            const driverId = getId(driver);
-            return (
-              <Paper 
-                key={driverId} 
-                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
-                onClick={() => {
-                  setSelectedDriver(driver);
-                  setOpenDetails(true);
-                }}
-              >
-                <Box display="flex" gap={2}>
-                  <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
-                    {driver.name?.charAt(0)}
-                  </Avatar>
-                  <Box flex={1}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {driver.name}
-                      </Typography>
-                      <Chip 
-                        label={driver.isOnline ? 'متصل' : 'غير متصل'} 
-                        size="small" 
-                        color={driver.isOnline ? 'success' : 'default'} 
-                      />
-                    </Box>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      {driver.phone}
+          renderMobileCard={(driver, index) => (
+            <Paper 
+              key={getReactKey(driver, index)} 
+              sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
+              onClick={() => {
+                setSelectedDriver(driver);
+                setOpenDetails(true);
+              }}
+            >
+              <Box display="flex" gap={2}>
+                <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
+                  {driver.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {driver.name}
                     </Typography>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                      <Rating value={driver.rating || 0} readOnly size="small" />
-                      {driver.isVerified && <Verified fontSize="small" color="primary" />}
-                    </Box>
+                    <Chip 
+                      label={driver.isOnline ? 'متصل' : 'غير متصل'} 
+                      size="small" 
+                      color={driver.isOnline ? 'success' : 'default'} 
+                    />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {driver.phone}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Rating value={driver.rating || 0} readOnly size="small" />
+                    {driver.isVerified && <Verified fontSize="small" color="primary" />}
                   </Box>
                 </Box>
-                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+              </Box>
+              <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    handleViewLocation(driver);
+                  }}
+                >
+                  <LocationOn fontSize="small" />
+                </IconButton>
+                {!driver.isVerified && (
                   <IconButton 
                     size="small" 
                     onClick={(e) => { 
                       e.stopPropagation(); 
-                      handleViewLocation(driver);
+                      handleVerify(driver);
                     }}
+                    color="primary"
                   >
-                    <LocationOn fontSize="small" />
+                    <Verified fontSize="small" />
                   </IconButton>
-                  {!driver.isVerified && (
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleVerify(driver);
-                      }}
-                      color="primary"
-                    >
-                      <Verified fontSize="small" />
-                    </IconButton>
-                  )}
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      handleToggleStatus(driver);
-                    }}
-                  >
-                    {driver.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
-                  </IconButton>
-                </Box>
-              </Paper>
-            );
-          }}
+                )}
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    handleToggleStatus(driver);
+                  }}
+                >
+                  {driver.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
+                </IconButton>
+              </Box>
+            </Paper>
+          )}
         />
       </Paper>
 
-      {/* حوار تفاصيل المندوب */}
       <ResponsiveDialog 
         open={openDetails} 
         onClose={() => setOpenDetails(false)} 
@@ -403,7 +392,6 @@ export default function Drivers() {
         {selectedDriver && <DriverDetails driver={selectedDriver} />}
       </ResponsiveDialog>
 
-      {/* حوار موقع المندوب */}
       <ResponsiveDialog 
         open={openLocation} 
         onClose={() => setOpenLocation(false)} 
@@ -411,10 +399,9 @@ export default function Drivers() {
         maxWidth="md" 
         actions={<Button onClick={() => setOpenLocation(false)}>إغلاق</Button>}
       >
-        {selectedDriver && <DriverLocation driverId={getId(selectedDriver)} />}
+        {selectedDriver && <DriverLocation driverId={selectedDriver._id} />}
       </ResponsiveDialog>
 
-      {/* إشعارات */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={6000} 

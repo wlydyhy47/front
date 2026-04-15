@@ -1,5 +1,4 @@
-// src/pages/Products/index.jsx
-// صفحة إدارة المنتجات - نسخة كاملة ومتكاملة
+// src/pages/Products/index.jsx - نسخة كاملة مع _id
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -48,9 +47,8 @@ import ProductForm from './components/ProductForm';
 import ProductInventory from './components/ProductInventory';
 import ProductDetails from './components/ProductDetails';
 import { formatCurrency } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
-// ✅ تصنيفات المنتجات (بعد الاستيرادات)
 const CATEGORIES = [
   { value: 'all', label: 'الكل', icon: Restaurant },
   { value: 'main', label: 'وجبات رئيسية', icon: Restaurant },
@@ -61,7 +59,6 @@ const CATEGORIES = [
   { value: 'sauce', label: 'صلصات', icon: Restaurant },
 ];
 
-// ✅ خيارات الفلتر
 const AVAILABILITY_OPTIONS = [
   { value: 'all', label: 'الكل' },
   { value: 'available', label: 'متاح' },
@@ -78,7 +75,6 @@ export default function Products() {
   const { isMobile, fontSize, spacing } = useResponsive();
   const queryClient = useQueryClient();
   
-  // ✅ حالات الصفحة
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
   const [filters, setFilters] = useState({
@@ -98,7 +94,6 @@ export default function Products() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // ✅ جلب المنتجات
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['products', page, pageSize, filters],
     () => productsService.getProducts({
@@ -124,7 +119,6 @@ export default function Products() {
     }
   );
 
-  // ✅ جلب المتاجر للفلتر
   const { data: storesData, isLoading: storesLoading } = useQuery(
     'stores-list', 
     () => storesService.getStores({ limit: 100 }),
@@ -139,9 +133,8 @@ export default function Products() {
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
-  // ✅ حذف منتج
   const deleteMutation = useMutation(
-    (id) => productsService.deleteProduct(id),
+    (productId) => productsService.deleteProduct(productId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -154,9 +147,8 @@ export default function Products() {
     }
   );
 
-  // ✅ تغيير حالة التوفر
   const toggleAvailabilityMutation = useMutation(
-    (id) => productsService.toggleAvailability(id),
+    (productId) => productsService.toggleAvailability(productId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -168,9 +160,8 @@ export default function Products() {
     }
   );
 
-  // ✅ تمييز منتج
   const featureProductMutation = useMutation(
-    ({ id, featured }) => productsService.featureProduct(id, { featured }),
+    ({ productId, featured }) => productsService.featureProduct(productId, { featured }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -182,7 +173,6 @@ export default function Products() {
     }
   );
 
-  // ✅ دوال المعالجة
   const handleViewDetails = useCallback((product) => {
     setSelectedProduct(product);
     setOpenDetails(true);
@@ -204,16 +194,16 @@ export default function Products() {
   }, []);
 
   const handleToggleAvailability = useCallback((product) => {
-    toggleAvailabilityMutation.mutate(getId(product));
+    toggleAvailabilityMutation.mutate(product._id);
   }, [toggleAvailabilityMutation]);
 
   const handleToggleFeature = useCallback((product) => {
-    featureProductMutation.mutate({ id: getId(product), featured: !product.featured });
+    featureProductMutation.mutate({ productId: product._id, featured: !product.featured });
   }, [featureProductMutation]);
 
   const confirmDelete = useCallback(() => {
     if (selectedProduct) {
-      deleteMutation.mutate(getId(selectedProduct));
+      deleteMutation.mutate(selectedProduct._id);
     }
   }, [selectedProduct, deleteMutation]);
 
@@ -231,7 +221,6 @@ export default function Products() {
     setShowAdvancedFilters(false);
   }, []);
 
-  // ✅ إحصائيات سريعة
   const statsCards = useMemo(() => [
     { 
       title: 'إجمالي المنتجات', 
@@ -263,7 +252,6 @@ export default function Products() {
     },
   ], [stats, totalCount, products]);
 
-  // ✅ أعمدة الجدول
   const columns = useMemo(() => [
     {
       field: 'image',
@@ -420,19 +408,12 @@ export default function Products() {
     },
   ], [storesData, handleViewDetails, handleEdit, handleInventory, handleToggleAvailability, handleToggleFeature, handleDelete]);
 
-  // ✅ تصدير البيانات
-  const handleExport = useCallback(() => {
-    setSnackbar({ open: true, message: 'جاري التصدير...', severity: 'info' });
-  }, []);
-
   return (
     <Box sx={{ p: spacing.page }}>
-      {/* العنوان */}
       <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
         إدارة المنتجات
       </Typography>
 
-      {/* بطاقات الإحصائيات */}
       <ResponsiveStatsCards 
         cards={statsCards} 
         columnsDesktop={4}
@@ -441,9 +422,7 @@ export default function Products() {
         spacing={spacing.section}
       />
 
-      {/* المحتوى الرئيسي */}
       <Paper sx={{ p: spacing.card }}>
-        {/* شريط العنوان والأزرار */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
             قائمة المنتجات
@@ -471,7 +450,7 @@ export default function Products() {
             <Button 
               variant="outlined" 
               startIcon={<Download />} 
-              onClick={handleExport} 
+              onClick={() => setSnackbar({ open: true, message: 'جاري التصدير...', severity: 'info' })} 
               size="small"
             >
               تصدير
@@ -490,7 +469,6 @@ export default function Products() {
           </Box>
         </Box>
 
-        {/* الفلاتر الأساسية */}
         <ResponsiveFilters onReset={resetFilters}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
@@ -554,7 +532,6 @@ export default function Products() {
           </Grid>
         </ResponsiveFilters>
 
-        {/* الفلاتر المتقدمة */}
         {(showAdvancedFilters || !isMobile) && (
           <Box mt={2} mb={2}>
             <Grid container spacing={2}>
@@ -615,7 +592,6 @@ export default function Products() {
           </Box>
         )}
 
-        {/* الجدول المتجاوب */}
         <ResponsiveTable
           data={products}
           columns={columns}
@@ -625,14 +601,13 @@ export default function Products() {
             setOpenDetails(true);
           }}
           emptyMessage="لا توجد منتجات"
-          renderMobileCard={(product) => {
-            const productId = getId(product);
+          renderMobileCard={(product, index) => {
             const storeName = typeof product.store === 'object' ? product.store?.name : (product.storeId || 'غير محدد');
             const isLowStock = product.inventory?.quantity <= (product.inventory?.lowStockThreshold || 5);
             
             return (
               <Paper 
-                key={productId} 
+                key={getReactKey(product, index)} 
                 sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
                 onClick={() => {
                   setSelectedProduct(product);
@@ -678,7 +653,6 @@ export default function Products() {
                       <Rating value={product.rating || 0} readOnly size="small" />
                     </Box>
                     
-                    {/* عرض حالة المخزون */}
                     {isLowStock && product.inventory?.quantity > 0 && (
                       <Chip 
                         label={`مخزون منخفض: ${product.inventory.quantity}`} 
@@ -688,7 +662,6 @@ export default function Products() {
                       />
                     )}
                     
-                    {/* عرض الخصائص */}
                     {product.attributes && Object.values(product.attributes).some(v => v === true || v > 0) && (
                       <Box display="flex" gap={0.5} mt={1}>
                         {product.attributes.spicyLevel > 0 && (
@@ -734,7 +707,6 @@ export default function Products() {
           }}
         />
 
-        {/* ترقيم الصفحات للهواتف */}
         {isMobile && totalCount > pageSize && (
           <Box display="flex" justifyContent="center" mt={2} gap={2}>
             <Button
@@ -760,9 +732,6 @@ export default function Products() {
         )}
       </Paper>
 
-      {/* ========== الحوارات ========== */}
-
-      {/* نموذج إضافة/تعديل منتج */}
       <ResponsiveDialog
         open={openForm}
         onClose={() => setOpenForm(false)}
@@ -781,7 +750,6 @@ export default function Products() {
         />
       </ResponsiveDialog>
 
-      {/* تفاصيل المنتج */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
@@ -793,7 +761,6 @@ export default function Products() {
         {selectedProduct && <ProductDetails product={selectedProduct} />}
       </ResponsiveDialog>
 
-      {/* إدارة المخزون */}
       <ResponsiveDialog
         open={openInventory}
         onClose={() => setOpenInventory(false)}
@@ -813,7 +780,6 @@ export default function Products() {
         )}
       </ResponsiveDialog>
 
-      {/* حوار تأكيد الحذف */}
       <ResponsiveDialog
         open={openDeleteDialog}
         onClose={() => setOpenDeleteDialog(false)}
@@ -833,7 +799,6 @@ export default function Products() {
         </Typography>
       </ResponsiveDialog>
 
-      {/* إشعارات */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

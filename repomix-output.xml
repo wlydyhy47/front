@@ -80,6 +80,7 @@ src/context/ThemeContext.jsx
 src/hooks/useApi.js
 src/hooks/useAuth.js
 src/hooks/useDebounce.js
+src/hooks/useItemId.js
 src/hooks/usePagination.js
 src/hooks/useResponsive.js
 src/index.css
@@ -139,6 +140,37 @@ vite.config.js
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="src/hooks/useItemId.js">
+// src/hooks/useItemId.js - Hook مخصص للحصول على الـ ID
+
+import { useCallback } from 'react';
+import { getId, getReactKey } from '../utils/helpers';
+
+/**
+ * Hook مخصص للحصول على ID العنصر بأمان
+ * @returns {Function} - دالة getId
+ */
+export const useItemId = () => {
+  return useCallback((item) => getId(item), []);
+};
+
+/**
+ * Hook لإنشاء مفاتيح React فريدة
+ * @returns {Function} - دالة getKey
+ */
+export const useReactKey = () => {
+  return useCallback((item, index) => getReactKey(item, index), []);
+};
+
+/**
+ * Hook للتحقق من وجود ID
+ * @returns {Function} - دالة hasId
+ */
+export const useHasId = () => {
+  return useCallback((item) => !!getId(item), []);
+};
+</file>
 
 <file path=".env.example">
 # API Configuration
@@ -331,13 +363,13 @@ If you are developing a production application, we recommend using TypeScript wi
 </file>
 
 <file path="src/api/index.js">
-// src/api/index.js - أضف mapEndpoints إلى الاستيراد
+// src/api/index.js - جميع الخدمات مع توحيد الـ IDs
+
 import apiClient from './client';
-import { adminEndpoints, mapEndpoints, buildUrl } from './endpoints';
+import { adminEndpoints, mapEndpoints, buildUrl, getItemId } from './endpoints';
 
 // ==================== خدمات الخرائط ====================
 export const mapService = {
-  // المسارات
   getDirections: (origin, destination, profile = 'driving') => 
     apiClient.post(mapEndpoints.directions, { origin, destination, profile }),
   
@@ -347,14 +379,12 @@ export const mapService = {
   getStaticMap: (params) => 
     apiClient.get(buildUrl(mapEndpoints.staticMap, params)),
   
-  // البحث عن العناوين
   geocode: (address, limit = 5) => 
     apiClient.get(buildUrl(mapEndpoints.geocode, { address, limit })),
   
   reverseGeocode: (latitude, longitude) => 
     apiClient.get(buildUrl(mapEndpoints.reverseGeocode, { latitude, longitude })),
   
-  // المتاجر
   getStoresMap: (params = {}) => 
     apiClient.get(buildUrl(mapEndpoints.stores, params)),
   
@@ -364,7 +394,6 @@ export const mapService = {
   findNearestDriverForStore: (latitude, longitude, radius = 5000, limit = 10) => 
     apiClient.post(mapEndpoints.nearestDriver, { latitude, longitude, radius, limit }),
   
-  // المندوبين
   updateDriverLocation: (latitude, longitude, accuracy, heading, speed) => 
     apiClient.put(mapEndpoints.driverLocation, { latitude, longitude, accuracy, heading, speed }),
   
@@ -380,14 +409,12 @@ export const mapService = {
   findNearestDriver: (latitude, longitude, radius = 5000, limit = 10) => 
     apiClient.post(mapEndpoints.nearestDriverAdmin, { latitude, longitude, radius, limit }),
   
-  // الطلبات
   getOrderRoute: (orderId) => 
     apiClient.get(mapEndpoints.orderRoute(orderId)),
   
   getDriverCurrentRoute: () => 
     apiClient.get(mapEndpoints.driverCurrentRoute),
 };
-
 
 // ==================== خدمات لوحة التحكم ====================
 export const dashboardService = {
@@ -402,93 +429,173 @@ export const dashboardService = {
 export const usersService = {
   getUsers: (params = {}) => apiClient.get(buildUrl(adminEndpoints.users, params)),
   createUser: (data) => apiClient.post(adminEndpoints.users, data),
-  getUserDetails: (id) => apiClient.get(adminEndpoints.userDetails(id)),
-  updateUser: (id, data) => apiClient.put(adminEndpoints.userDetails(id), data),
-  deleteUser: (id) => apiClient.delete(adminEndpoints.userDetails(id)),
+  getUserDetails: (user) => {
+    const id = getItemId(user);
+    return apiClient.get(adminEndpoints.userDetails(id));
+  },
+  updateUser: (user, data) => {
+    const id = getItemId(user);
+    return apiClient.put(adminEndpoints.userDetails(id), data);
+  },
+  deleteUser: (user) => {
+    const id = getItemId(user);
+    return apiClient.delete(adminEndpoints.userDetails(id));
+  },
 };
 
 // ==================== خدمات التجار ====================
 export const vendorsService = {
   getVendors: (params = {}) => apiClient.get(buildUrl(adminEndpoints.vendors, params)),
-  getVendorDetails: (id) => apiClient.get(adminEndpoints.vendorDetails(id)),
-  verifyVendor: (id) => apiClient.put(adminEndpoints.verifyVendor(id)),
-  updateVendorStatus: (id, data) => apiClient.put(adminEndpoints.updateVendorStatus(id), data),
+  getVendorDetails: (vendor) => {
+    const id = getItemId(vendor);
+    return apiClient.get(adminEndpoints.vendorDetails(id));
+  },
+  verifyVendor: (vendor) => {
+    const id = getItemId(vendor);
+    return apiClient.put(adminEndpoints.verifyVendor(id));
+  },
+  updateVendorStatus: (vendor, data) => {
+    const id = getItemId(vendor);
+    return apiClient.put(adminEndpoints.updateVendorStatus(id), data);
+  },
 };
 
 // ==================== خدمات المتاجر ====================
 export const storesService = {
   getStores: (params = {}) => apiClient.get(buildUrl(adminEndpoints.stores, params)),
   createStore: (data) => apiClient.post(adminEndpoints.stores, data),
-  getStoreDetails: (id) => apiClient.get(adminEndpoints.storeDetails(id)),
-  updateStore: (id, data) => apiClient.put(adminEndpoints.storeDetails(id), data),
-  deleteStore: (id) => apiClient.delete(adminEndpoints.storeDetails(id)),
-  verifyStore: (id) => apiClient.put(adminEndpoints.verifyStore(id)),
-  toggleStoreStatus: (id) => apiClient.put(adminEndpoints.toggleStoreStatus(id)),
+  getStoreDetails: (store) => {
+    const id = getItemId(store);
+    return apiClient.get(adminEndpoints.storeDetails(id));
+  },
+  updateStore: (store, data) => {
+    const id = getItemId(store);
+    return apiClient.put(adminEndpoints.storeDetails(id), data);
+  },
+  deleteStore: (store) => {
+    const id = getItemId(store);
+    return apiClient.delete(adminEndpoints.storeDetails(id));
+  },
+  verifyStore: (store) => {
+    const id = getItemId(store);
+    return apiClient.put(adminEndpoints.verifyStore(id));
+  },
+  toggleStoreStatus: (store) => {
+    const id = getItemId(store);
+    return apiClient.put(adminEndpoints.toggleStoreStatus(id));
+  },
+  updateStoreCoordinates: () => apiClient.post(adminEndpoints.updateStoreCoordinates),
 };
 
 // ==================== خدمات المنتجات ====================
 export const productsService = {
   getProducts: (params = {}) => apiClient.get(buildUrl(adminEndpoints.products, params)),
   
-  // ✅ تعديل createProduct لدعم FormData
   createProduct: (data) => {
-    // إذا كانت البيانات FormData، نستخدم config خاص
     if (data instanceof FormData) {
       return apiClient.post(adminEndpoints.products, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
-    // إذا كانت JSON
     return apiClient.post(adminEndpoints.products, data);
   },
   
   getProductStats: () => apiClient.get(adminEndpoints.productStats),
-  getProductDetails: (id) => apiClient.get(adminEndpoints.productDetails(id)),
   
-  // ✅ تعديل updateProduct لدعم FormData
-  updateProduct: (id, data) => {
+  getProductDetails: (product) => {
+    const id = getItemId(product);
+    return apiClient.get(adminEndpoints.productDetails(id));
+  },
+  
+  updateProduct: (product, data) => {
+    const id = getItemId(product);
     if (data instanceof FormData) {
       return apiClient.put(adminEndpoints.productDetails(id), data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
     }
     return apiClient.put(adminEndpoints.productDetails(id), data);
   },
   
-  deleteProduct: (id) => apiClient.delete(adminEndpoints.productDetails(id)),
-  featureProduct: (id, data) => apiClient.put(adminEndpoints.featureProduct(id), data),
-  updateProductImage: (id, formData) => apiClient.put(adminEndpoints.updateProductImage(id), formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  toggleAvailability: (id) => apiClient.put(adminEndpoints.toggleProductAvailability(id)),
-  updateInventory: (id, data) => apiClient.put(adminEndpoints.updateProductInventory(id), data),
+  deleteProduct: (product) => {
+    const id = getItemId(product);
+    return apiClient.delete(adminEndpoints.productDetails(id));
+  },
+  
+  featureProduct: (product, data) => {
+    const id = getItemId(product);
+    return apiClient.put(adminEndpoints.featureProduct(id), data);
+  },
+  
+  updateProductImage: (product, formData) => {
+    const id = getItemId(product);
+    return apiClient.put(adminEndpoints.updateProductImage(id), formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  
+  toggleAvailability: (product) => {
+    const id = getItemId(product);
+    return apiClient.put(adminEndpoints.toggleProductAvailability(id));
+  },
+  
+  updateInventory: (product, data) => {
+    const id = getItemId(product);
+    return apiClient.put(adminEndpoints.updateProductInventory(id), data);
+  },
 };
 
 // ==================== خدمات الطلبات ====================
 export const ordersService = {
   getOrders: (params = {}) => apiClient.get(buildUrl(adminEndpoints.orders, params)),
-  getOrderDetails: (id) => apiClient.get(adminEndpoints.orderDetails(id)),
+  getOrderDetails: (order) => {
+    const id = getItemId(order);
+    return apiClient.get(adminEndpoints.orderDetails(id));
+  },
   getOrdersStatsOverview: (params = {}) => apiClient.get(buildUrl(adminEndpoints.ordersStatsOverview, params)),
   getOrdersStatsDaily: () => apiClient.get(adminEndpoints.ordersStatsDaily),
   getOrdersStatsMonthly: (params = {}) => apiClient.get(buildUrl(adminEndpoints.ordersStatsMonthly, params)),
-  assignDriver: (id, data) => apiClient.put(adminEndpoints.assignDriver(id), data),
-  reassignDriver: (id) => apiClient.put(adminEndpoints.reassignDriver(id)),
-  forceCancelOrder: (id, data) => apiClient.put(adminEndpoints.forceCancelOrder(id), data),
+  assignDriver: (order, data) => {
+    const id = getItemId(order);
+    return apiClient.put(adminEndpoints.assignDriver(id), data);
+  },
+  reassignDriver: (order) => {
+    const id = getItemId(order);
+    return apiClient.put(adminEndpoints.reassignDriver(id));
+  },
+  forceCancelOrder: (order, data) => {
+    const id = getItemId(order);
+    return apiClient.put(adminEndpoints.forceCancelOrder(id), data);
+  },
 };
 
 // ==================== خدمات المندوبين ====================
 export const driversService = {
   getDrivers: (params = {}) => apiClient.get(buildUrl(adminEndpoints.drivers, params)),
-  getDriverDetails: (id) => apiClient.get(adminEndpoints.driverDetails(id)),
-  getDriverLocation: (id) => apiClient.get(adminEndpoints.driverLocation(id)),
-  getDriverStats: (id) => apiClient.get(adminEndpoints.driverStats(id)),
-  getDriverOrders: (id, params = {}) => apiClient.get(buildUrl(adminEndpoints.driverOrders(id), params)),
-  verifyDriver: (id) => apiClient.put(adminEndpoints.verifyDriver(id)),
-  updateDriverStatus: (id, data) => apiClient.put(adminEndpoints.updateDriverStatus(id), data),
+  getDriverDetails: (driver) => {
+    const id = getItemId(driver);
+    return apiClient.get(adminEndpoints.driverDetails(id));
+  },
+  getDriverLocation: (driver) => {
+    const id = getItemId(driver);
+    return apiClient.get(adminEndpoints.driverLocation(id));
+  },
+  getDriverStats: (driver) => {
+    const id = getItemId(driver);
+    return apiClient.get(adminEndpoints.driverStats(id));
+  },
+  getDriverOrders: (driver, params = {}) => {
+    const id = getItemId(driver);
+    return apiClient.get(buildUrl(adminEndpoints.driverOrders(id), params));
+  },
+  verifyDriver: (driver) => {
+    const id = getItemId(driver);
+    return apiClient.put(adminEndpoints.verifyDriver(id));
+  },
+  updateDriverStatus: (driver, data) => {
+    const id = getItemId(driver);
+    return apiClient.put(adminEndpoints.updateDriverStatus(id), data);
+  },
 };
 
 // ==================== خدمات الإشعارات ====================
@@ -1144,6 +1251,8 @@ export const useAuth = () => {
 </file>
 
 <file path="src/hooks/useDebounce.js">
+// src/hooks/useDebounce.js
+
 import { useState, useEffect } from 'react';
 
 export function useDebounce(value, delay = 500) {
@@ -1164,6 +1273,8 @@ export function useDebounce(value, delay = 500) {
 </file>
 
 <file path="src/hooks/usePagination.js">
+// src/hooks/usePagination.js
+
 import { useState, useMemo } from 'react';
 
 export function usePagination(totalItems, initialPageSize = 20) {
@@ -1201,6 +1312,8 @@ export function usePagination(totalItems, initialPageSize = 20) {
 </file>
 
 <file path="src/hooks/useResponsive.js">
+// src/hooks/useResponsive.js - هوك للتحقق من حجم الشاشة
+
 import { useTheme, useMediaQuery } from '@mui/material';
 
 /**
@@ -2734,83 +2847,6 @@ export default function ProductInventory({ product, onSuccess }) {
 }
 </file>
 
-<file path="src/pages/Stores/components/StoreDetails.jsx">
-import { Box, Grid, Typography, Paper, Avatar, Chip, Rating } from '@mui/material';
-import { formatDate } from '../../../utils/formatters';
-
-export default function StoreDetails({ store }) {
-  // التحقق من وجود البيانات
-  if (!store) return null;
-
-  return (
-    <Box>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4} textAlign="center">
-            <Avatar 
-              src={store.logo} 
-              sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
-            >
-              {store.name?.charAt(0)}
-            </Avatar>
-            <Typography variant="h6">{store.name}</Typography>
-            <Box display="flex" justifyContent="center" mt={1}>
-              <Rating value={store.averageRating || 0} readOnly precision={0.5} />
-              <Typography variant="caption" sx={{ ml: 1 }}>
-                ({store.ratingsCount || 0})
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <Typography variant="body1" gutterBottom>
-              <strong>الوصف:</strong> {store.description || '-'}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>التصنيف:</strong> {store.category || '-'}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>رقم الهاتف:</strong> {store.phone || '-'}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>البريد الإلكتروني:</strong> {store.email || '-'}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>العنوان:</strong> {store.address?.city || '-'}, {store.address?.country || '-'}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>عدد المنتجات:</strong> {store.stats?.productsCount || store.productsCount || 0}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>تاريخ التسجيل:</strong> {formatDate(store.createdAt)}
-            </Typography>
-            <Box display="flex" gap={1} mt={2}>
-              <Chip 
-                label={store.isVerified ? 'موثق' : 'غير موثق'} 
-                color={store.isVerified ? 'primary' : 'default'} 
-                size="small"
-              />
-              <Chip 
-                label={store.isOpen ? 'مفتوح' : 'مغلق'} 
-                color={store.isOpen ? 'success' : 'error'} 
-                size="small"
-              />
-              {store.deliveryInfo?.hasDelivery && (
-                <Chip 
-                  label={`توصيل: ${store.deliveryInfo.deliveryFee} ₪`} 
-                  color="info" 
-                  size="small"
-                  variant="outlined"
-                />
-              )}
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-    </Box>
-  );
-}
-</file>
-
 <file path="src/pages/Stores/components/StoreFilters.jsx">
 import { Grid, TextField, MenuItem, Button } from '@mui/material';
 
@@ -3870,10 +3906,10 @@ export default function LoadingSpinner({ message = 'جاري التحميل...',
 </file>
 
 <file path="src/components/Common/ResponsiveDialog.jsx">
-// src/components/Common/ResponsiveDialog.jsx - نسخة مصححة
+// src/components/Common/ResponsiveDialog.jsx - نسخة محسنة
 
 import { Dialog, DialogTitle, DialogContent, DialogActions, useTheme, useMediaQuery } from '@mui/material';
-import { memo } from 'react'; // ✅ استيراد memo من react
+import { memo } from 'react';
 
 /**
  * مكون حوار متجاوب - يتكيف مع حجم الشاشة
@@ -3953,7 +3989,7 @@ import {
   Typography,
 } from '@mui/material';
 import { FilterList, Close } from '@mui/icons-material';
-import { memo } from 'react'; // ✅ استيراد memo من react
+import { memo } from 'react';
 
 const ResponsiveFilters = memo(({ 
   children, 
@@ -4036,7 +4072,7 @@ export default ResponsiveFilters;
 // src/components/Common/ResponsiveStatsCards.jsx - نسخة مصححة
 
 import { Grid, Card, CardContent, Typography, Box, useTheme, useMediaQuery } from '@mui/material';
-import { memo } from 'react'; // ✅ استيراد memo من react
+import { memo } from 'react';
 
 const ResponsiveStatsCards = memo(({ 
   cards = [], 
@@ -4103,6 +4139,10 @@ const ResponsiveStatsCards = memo(({
     </Card>
   );
 
+  if (cards.length === 0) {
+    return null;
+  }
+
   return (
     <Grid container spacing={isMobile ? 1.5 : spacing}>
       {cards.map((card, index) => (
@@ -4120,7 +4160,7 @@ export default ResponsiveStatsCards;
 </file>
 
 <file path="src/components/Common/ResponsiveTable.jsx">
-// src/components/Common/ResponsiveTable.jsx - تحسين معالجة الخلايا
+// src/components/Common/ResponsiveTable.jsx - مع دعم _id
 
 import { 
   Table, 
@@ -4137,6 +4177,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { memo } from 'react';
+import { getId, getReactKey } from '../../utils/helpers';
 
 const ResponsiveTable = memo(({ 
   data = [], 
@@ -4168,12 +4209,12 @@ const ResponsiveTable = memo(({
     );
   }
 
-  // ✅ دالة مساعدة للحصول على id
+  // دالة مساعدة للحصول على id (باستخدام _id أو id)
   const getItemId = (item, index) => {
-    return item._id || item.id || `item-${index}`;
+    return getId(item) || `item-${index}`;
   };
 
-  // ✅ دالة مساعدة لعرض قيمة الخلية بشكل آمن
+  // دالة مساعدة لعرض قيمة الخلية بشكل آمن
   const renderCellValue = (column, row) => {
     // إذا كان هناك renderCell مخصص
     if (column.renderCell) {
@@ -4183,7 +4224,6 @@ const ResponsiveTable = memo(({
     // إذا كان هناك valueGetter
     if (column.valueGetter) {
       const value = column.valueGetter(row);
-      // التأكد من أن القيمة ليست كائن
       if (typeof value === 'object' && value !== null) {
         console.warn(`Column ${column.field} returned an object:`, value);
         return JSON.stringify(value);
@@ -4194,17 +4234,14 @@ const ResponsiveTable = memo(({
     // الحصول على القيمة مباشرة
     let value = row[column.field];
     
-    // التأكد من أن القيمة ليست كائن
     if (typeof value === 'object' && value !== null) {
-      console.warn(`Field ${column.field} contains an object:`, value);
-      // محاولة استخراج قيمة من الكائن
       if (value.name) return value.name;
       if (value.label) return value.label;
       if (value.id) return value.id;
+      if (value._id) return value._id;
       return JSON.stringify(value);
     }
     
-    // استخدام valueFormatter إذا وجد
     if (column.valueFormatter) {
       return column.valueFormatter(value);
     }
@@ -4218,7 +4255,7 @@ const ResponsiveTable = memo(({
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {data.map((item, index) => (
-            <div key={getItemId(item, index)}>
+            <div key={getReactKey(item, index)}>
               {renderMobileCard(item, index)}
             </div>
           ))}
@@ -4231,7 +4268,7 @@ const ResponsiveTable = memo(({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {data.map((item, index) => (
           <Card 
-            key={getItemId(item, index)} 
+            key={getReactKey(item, index)} 
             sx={{ 
               p: 1.5, 
               cursor: onRowClick ? 'pointer' : 'default',
@@ -4290,7 +4327,7 @@ const ResponsiveTable = memo(({
         <TableBody>
           {data.map((item, index) => (
             <TableRow 
-              key={getItemId(item, index)}
+              key={getReactKey(item, index)}
               hover={!!onRowClick}
               onClick={() => onRowClick && onRowClick(item)}
               sx={{ 
@@ -7523,918 +7560,241 @@ export default function Reports() {
 }
 </file>
 
-<file path="src/pages/Stores/components/StoreForm.jsx">
-import { useState } from 'react';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import {
-  TextField,
-  MenuItem,
-  Button,
-  Box,
-  Grid,
-  Switch,
-  FormControlLabel,
-  Alert,
-  CircularProgress,
-  InputAdornment,
-  Typography,
-  Divider,
-  Paper,
-  Chip,
-  Stack,
-  IconButton,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Avatar,
-  Badge,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  ExpandMore as ExpandMoreIcon,
-  LocationOn as LocationIcon,
-  DeliveryDining as DeliveryIcon,
-  Schedule as ScheduleIcon,
-  Map as MapIcon,
-  CloudUpload as CloudUploadIcon,
-  PhotoCamera as PhotoCameraIcon,
-  Clear as ClearIcon,
-} from '@mui/icons-material';
-import { storesService } from '../../../api';
+<file path="src/pages/Stores/components/StoreDetails.jsx">
+import { Box, Grid, Typography, Paper, Avatar, Chip, Rating, Divider } from '@mui/material';
+import { Storefront, Person, Phone, Email, LocationOn, Verified, Schedule } from '@mui/icons-material';
+import { formatDate } from '../../../utils/formatters';
 
-const validationSchema = Yup.object({
-  name: Yup.string()
-    .required('اسم المتجر مطلوب')
-    .min(3, 'الاسم يجب أن يكون 3 أحرف على الأقل')
-    .max(100, 'الاسم يجب أن لا يتجاوز 100 حرف'),
-  description: Yup.string()
-    .max(500, 'الوصف طويل جداً')
-    .required('الوصف مطلوب'),
-  category: Yup.string().required('التصنيف مطلوب'),
-  phone: Yup.string()
-    .required('رقم الهاتف مطلوب')
-    .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{4,6}$/, 'رقم الهاتف غير صالح'),
-  email: Yup.string().email('بريد إلكتروني غير صحيح'),
-  website: Yup.string().url('رابط غير صحيح'),
-  address: Yup.object({
-    street: Yup.string().max(200),
-    city: Yup.string().max(100),
-    state: Yup.string().max(100),
-    country: Yup.string().max(100),
-    postalCode: Yup.string().max(20),
-    latitude: Yup.number()
-      .min(-90, 'خط العرض يجب أن يكون بين -90 و 90')
-      .max(90, 'خط العرض يجب أن يكون بين -90 و 90'),
-    longitude: Yup.number()
-      .min(-180, 'خط الطول يجب أن يكون بين -180 و 180')
-      .max(180, 'خط الطول يجب أن يكون بين -180 و 180'),
-  }),
-  deliveryInfo: Yup.object({
-    hasDelivery: Yup.boolean(),
-    deliveryFee: Yup.number().min(0, 'رسوم التوصيل يجب أن تكون 0 أو أكثر'),
-    minOrderAmount: Yup.number().min(0, 'الحد الأدنى للطلب يجب أن يكون 0 أو أكثر'),
-    estimatedDeliveryTime: Yup.number().min(5, 'الوقت المقدر يجب أن لا يقل عن 5 دقائق').max(120, 'الوقت المقدر يجب أن لا يتجاوز 120 دقيقة'),
-    deliveryRadius: Yup.number().min(1, 'نطاق التوصيل يجب أن لا يقل عن 1 كم').max(50, 'نطاق التوصيل يجب أن لا يتجاوز 50 كم'),
-    freeDeliveryThreshold: Yup.number().min(0),
-  }),
-  tags: Yup.array().of(Yup.string()),
-  isOpen: Yup.boolean(),
-});
+export default function StoreDetails({ store }) {
+  // التحقق من وجود البيانات
+  if (!store) return null;
 
-const categories = [
-  { value: 'restaurant', label: 'مطعم' },
-  { value: 'cafe', label: 'مقهى' },
-  { value: 'fast_food', label: 'وجبات سريعة' },
-  { value: 'bakery', label: 'مخبز' },
-  { value: 'grocery', label: 'بقالة' },
-  { value: 'supermarket', label: 'سوبر ماركت' },
-  { value: 'pharmacy', label: 'صيدلية' },
-  { value: 'clothing', label: 'ملابس' },
-  { value: 'electronics', label: 'إلكترونيات' },
-  { value: 'other', label: 'أخرى' },
-];
-
-const daysOfWeek = [
-  { value: 'monday', label: 'الإثنين' },
-  { value: 'tuesday', label: 'الثلاثاء' },
-  { value: 'wednesday', label: 'الأربعاء' },
-  { value: 'thursday', label: 'الخميس' },
-  { value: 'friday', label: 'الجمعة' },
-  { value: 'saturday', label: 'السبت' },
-  { value: 'sunday', label: 'الأحد' },
-];
-
-export default function StoreForm({ store, onSuccess, onCancel }) {
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [expandedSections, setExpandedSections] = useState({
-    address: false,
-    delivery: false,
-    hours: false,
-  });
-  
-  // ✅ FIXED: إضافة states لرفع الملفات
-  const [logoFile, setLogoFile] = useState(null);
-  const [coverFile, setCoverFile] = useState(null);
-  const [logoPreview, setLogoPreview] = useState(store?.logo || null);
-  const [coverPreview, setCoverPreview] = useState(store?.coverImage || null);
-  
-  const isEdit = !!store;
-
-  // ✅ FIXED: دالة معالجة رفع الشعار
-  const handleLogoChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setLogoFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setLogoPreview(previewUrl);
-    }
-  };
-
-  // ✅ FIXED: دالة معالجة رفع صورة الغلاف
-  const handleCoverChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setCoverFile(file);
-      const previewUrl = URL.createObjectURL(file);
-      setCoverPreview(previewUrl);
-    }
-  };
-
-  // ✅ FIXED: دالة إزالة الشعار
-  const handleRemoveLogo = () => {
-    setLogoFile(null);
-    setLogoPreview(store?.logo || null);
-  };
-
-  // ✅ FIXED: دالة إزالة صورة الغلاف
-  const handleRemoveCover = () => {
-    setCoverFile(null);
-    setCoverPreview(store?.coverImage || null);
-  };
-
-  // دالة لجلب الموقع الحالي للمستخدم
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setError('المتصفح لا يدعم تحديد الموقع');
-      return;
-    }
-
-    setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        formik.setFieldValue('address.latitude', position.coords.latitude);
-        formik.setFieldValue('address.longitude', position.coords.longitude);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('❌ Geolocation error:', error);
-        setError('فشل في تحديد الموقع الحالي');
-        setLoading(false);
-      }
-    );
-  };
-
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !formik.values.tags.includes(tagInput.trim())) {
-      formik.setFieldValue('tags', [...formik.values.tags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
-
-  const handleDeleteTag = (tagToDelete) => {
-    formik.setFieldValue('tags', formik.values.tags.filter(tag => tag !== tagToDelete));
-  };
-
-  const formik = useFormik({
-    initialValues: {
-      name: store?.name || '',
-      description: store?.description || '',
-      category: store?.category || '',
-      phone: store?.phone || '',
-      email: store?.email || '',
-      website: store?.website || '',
-      isOpen: store?.isOpen !== undefined ? store.isOpen : true,
-      address: {
-        street: store?.address?.street || '',
-        city: store?.address?.city || '',
-        state: store?.address?.state || '',
-        country: store?.address?.country || 'Niger',
-        postalCode: store?.address?.postalCode || '',
-        latitude: store?.address?.latitude || '',
-        longitude: store?.address?.longitude || '',
-      },
-      deliveryInfo: {
-        hasDelivery: store?.deliveryInfo?.hasDelivery !== undefined ? store.deliveryInfo.hasDelivery : true,
-        deliveryFee: store?.deliveryInfo?.deliveryFee || 0,
-        minOrderAmount: store?.deliveryInfo?.minOrderAmount || 0,
-        estimatedDeliveryTime: store?.deliveryInfo?.estimatedDeliveryTime || 30,
-        deliveryRadius: store?.deliveryInfo?.deliveryRadius || 10,
-        freeDeliveryThreshold: store?.deliveryInfo?.freeDeliveryThreshold || 0,
-      },
-      tags: store?.tags || [],
-      openingHours: store?.openingHours || {
-        monday: { open: '09:00', close: '22:00', isOpen: true },
-        tuesday: { open: '09:00', close: '22:00', isOpen: true },
-        wednesday: { open: '09:00', close: '22:00', isOpen: true },
-        thursday: { open: '09:00', close: '22:00', isOpen: true },
-        friday: { open: '09:00', close: '22:00', isOpen: true },
-        saturday: { open: '10:00', close: '23:00', isOpen: true },
-        sunday: { open: '10:00', close: '23:00', isOpen: true },
-      },
-    },
-    validationSchema,
-    onSubmit: async (values) => {
-      setLoading(true);
-      setError('');
-
-      try {
-        const formData = new FormData();
-
-        // ✅ FIXED: إضافة الحقول الأساسية مع التحويل إلى JSON
-        // اسم المتجر
-        formData.append('name', values.name);
-        
-        // الوصف
-        formData.append('description', values.description);
-        
-        // التصنيف
-        formData.append('category', values.category);
-        
-        // رقم الهاتف
-        formData.append('phone', values.phone);
-        
-        // البريد الإلكتروني (اختياري)
-        if (values.email) {
-          formData.append('email', values.email);
-        }
-        
-        // الموقع الإلكتروني (اختياري)
-        if (values.website) {
-          formData.append('website', values.website);
-        }
-        
-        // حالة المتجر
-        formData.append('isOpen', values.isOpen);
-        
-        // ✅ تحويل address إلى JSON string
-        const addressString = JSON.stringify(values.address);
-        console.log('📦 Address JSON:', addressString);
-        formData.append('address', addressString);
-        
-        // ✅ تحويل deliveryInfo إلى JSON string
-        const deliveryString = JSON.stringify(values.deliveryInfo);
-        console.log('📦 Delivery JSON:', deliveryString);
-        formData.append('deliveryInfo', deliveryString);
-        
-        // ✅ تحويل openingHours إلى JSON string
-        const hoursString = JSON.stringify(values.openingHours);
-        console.log('📦 Opening Hours JSON:', hoursString);
-        formData.append('openingHours', hoursString);
-        
-        // ✅ تحويل tags إلى string مفصول بفواصل
-        if (values.tags && values.tags.length > 0) {
-          const tagsString = values.tags.join(',');
-          console.log('📦 Tags:', tagsString);
-          formData.append('tags', tagsString);
-        }
-        
-        // ✅ FIXED: إضافة الصور إذا وجدت
-        if (logoFile) {
-          console.log('📦 Adding logo file:', logoFile.name);
-          formData.append('logo', logoFile);
-        }
-        
-        if (coverFile) {
-          console.log('📦 Adding cover image file:', coverFile.name);
-          formData.append('coverImage', coverFile);
-        }
-
-        // تسجيل جميع البيانات التي تم إضافتها إلى FormData للـ debugging
-        console.log('📦 FormData entries:');
-        for (let pair of formData.entries()) {
-          if (pair[0].includes('File') || pair[1] instanceof File) {
-            console.log(pair[0], '=', pair[1].name, '(File)');
-          } else {
-            console.log(pair[0], '=', pair[1]);
-          }
-        }
-
-        // إرسال البيانات
-        if (isEdit) {
-          await storesService.updateStore(store._id, formData);
-        } else {
-          await storesService.createStore(formData);
-        }
-        
-        onSuccess();
-      } catch (err) {
-        console.error('❌ Store form error:', err);
-        console.error('❌ Error response:', err.response?.data);
-        setError(err.response?.data?.message || 'حدث خطأ أثناء حفظ المتجر');
-      } finally {
-        setLoading(false);
-      }
-    },
-  });
+  // استخراج معلومات المالك (التاجر)
+  // ✅ استخدام vendor بدلاً من owner
+  const vendor = store.vendor;
+  const vendorName = typeof vendor === 'object' ? vendor?.name : (vendor || 'غير محدد');
+  const vendorPhone = typeof vendor === 'object' ? vendor?.phone : null;
+  const vendorEmail = typeof vendor === 'object' ? vendor?.email : null;
+  const vendorIsVerified = typeof vendor === 'object' ? vendor?.isVerified : false;
 
   return (
-    <form onSubmit={formik.handleSubmit}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-
-      <Grid container spacing={2}>
-        {/* ✅ FIXED: قسم الصور */}
-        <Grid item xs={12}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            صور المتجر
-          </Typography>
-        </Grid>
-
-        {/* شعار المتجر */}
-        <Grid item xs={12} sm={6}>
-          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="subtitle2" gutterBottom>
-              شعار المتجر
-            </Typography>
-            <Box sx={{ position: 'relative', display: 'inline-block' }}>
-              <Badge
-                overlap="circular"
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                badgeContent={
-                  logoPreview && !logoFile && !store?.logo ? null : (
-                    <IconButton
-                      size="small"
-                      onClick={handleRemoveLogo}
-                      sx={{
-                        bgcolor: 'error.main',
-                        color: 'white',
-                        '&:hover': { bgcolor: 'error.dark' },
-                      }}
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  )
-                }
-              >
-                <Avatar
-                  src={logoPreview}
-                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
-                  variant="rounded"
-                >
-                  {!logoPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
-                </Avatar>
-              </Badge>
-            </Box>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<CloudUploadIcon />}
-              size="small"
-              sx={{ mt: 1 }}
+    <Box>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Grid container spacing={3}>
+          {/* القسم الأيمن - الشعار والمعلومات الأساسية */}
+          <Grid item xs={12} md={4} textAlign="center">
+            <Avatar
+              src={store.logo}
+              sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
             >
-              رفع شعار
-              <input
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleLogoChange}
-              />
-            </Button>
-            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-              PNG, JPG, JPEG (Max 2MB)
-            </Typography>
-          </Paper>
-        </Grid>
-
-        {/* صورة الغلاف */}
-        <Grid item xs={12} sm={6}>
-          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="subtitle2" gutterBottom>
-              صورة الغلاف
-            </Typography>
-            <Box sx={{ position: 'relative', display: 'inline-block' }}>
-              <Badge
-                overlap="circular"
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                badgeContent={
-                  coverPreview && !coverFile && !store?.coverImage ? null : (
-                    <IconButton
-                      size="small"
-                      onClick={handleRemoveCover}
-                      sx={{
-                        bgcolor: 'error.main',
-                        color: 'white',
-                        '&:hover': { bgcolor: 'error.dark' },
-                      }}
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  )
-                }
-              >
-                <Avatar
-                  src={coverPreview}
-                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
-                  variant="rounded"
-                >
-                  {!coverPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
-                </Avatar>
-              </Badge>
+              {store.name?.charAt(0)}
+            </Avatar>
+            <Typography variant="h6">{store.name}</Typography>
+            <Box display="flex" justifyContent="center" mt={1}>
+              <Rating value={store.averageRating || 0} readOnly precision={0.5} />
+              <Typography variant="caption" sx={{ ml: 1 }}>
+                ({store.ratingsCount || 0})
+              </Typography>
             </Box>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<CloudUploadIcon />}
-              size="small"
-              sx={{ mt: 1 }}
-            >
-              رفع غلاف
-              <input
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleCoverChange}
-              />
-            </Button>
-            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-              PNG, JPG, JPEG (Max 5MB)
-            </Typography>
-          </Paper>
-        </Grid>
 
-        {/* المعلومات الأساسية */}
-        <Grid item xs={12}>
-          <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>
-            المعلومات الأساسية
-          </Typography>
-        </Grid>
-
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            name="name"
-            label="اسم المتجر"
-            value={formik.values.name}
-            onChange={formik.handleChange}
-            error={formik.touched.name && Boolean(formik.errors.name)}
-            helperText={formik.touched.name && formik.errors.name}
-            disabled={loading}
-            required
-          />
-        </Grid>
-
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            name="description"
-            label="الوصف"
-            multiline
-            rows={3}
-            value={formik.values.description}
-            onChange={formik.handleChange}
-            error={formik.touched.description && Boolean(formik.errors.description)}
-            helperText={formik.touched.description && formik.errors.description}
-            disabled={loading}
-            required
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            select
-            name="category"
-            label="التصنيف"
-            value={formik.values.category}
-            onChange={formik.handleChange}
-            error={formik.touched.category && Boolean(formik.errors.category)}
-            helperText={formik.touched.category && formik.errors.category}
-            disabled={loading}
-            required
-          >
-            <MenuItem value="">اختر تصنيف</MenuItem>
-            {categories.map(c => (
-              <MenuItem key={c.value} value={c.value}>
-                {c.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            name="phone"
-            label="رقم الهاتف"
-            value={formik.values.phone}
-            onChange={formik.handleChange}
-            error={formik.touched.phone && Boolean(formik.errors.phone)}
-            helperText={formik.touched.phone && formik.errors.phone}
-            disabled={loading}
-            required
-            InputProps={{
-              startAdornment: <InputAdornment position="start">+</InputAdornment>,
-            }}
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            name="email"
-            label="البريد الإلكتروني"
-            type="email"
-            value={formik.values.email}
-            onChange={formik.handleChange}
-            error={formik.touched.email && Boolean(formik.errors.email)}
-            helperText={formik.touched.email && formik.errors.email}
-            disabled={loading}
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            name="website"
-            label="الموقع الإلكتروني"
-            value={formik.values.website}
-            onChange={formik.handleChange}
-            error={formik.touched.website && Boolean(formik.errors.website)}
-            helperText={formik.touched.website && formik.errors.website}
-            disabled={loading}
-          />
-        </Grid>
-
-        <Grid item xs={12}>
-          <FormControlLabel
-            control={
-              <Switch
-                name="isOpen"
-                checked={formik.values.isOpen}
-                onChange={formik.handleChange}
-                disabled={loading}
-              />
-            }
-            label="المتجر مفتوح حالياً"
-          />
-        </Grid>
-
-        {/* التاغات */}
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="التاغات (كلمات مفتاحية)"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-            placeholder="أدخل تاغ ثم اضغط Enter"
-            disabled={loading}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton onClick={handleAddTag} disabled={!tagInput.trim()}>
-                    <AddIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
-            {formik.values.tags.map((tag, index) => (
+            {/* حالة المتجر */}
+            <Box display="flex" justifyContent="center" gap={1} mt={2}>
               <Chip
-                key={index}
-                label={tag}
-                onDelete={() => handleDeleteTag(tag)}
-                disabled={loading}
+                label={store.isVerified ? 'موثق' : 'غير موثق'}
+                color={store.isVerified ? 'primary' : 'default'}
                 size="small"
               />
-            ))}
-          </Stack>
-        </Grid>
+              <Chip
+                label={store.isOpen ? 'مفتوح' : 'مغلق'}
+                color={store.isOpen ? 'success' : 'error'}
+                size="small"
+              />
+            </Box>
 
-        {/* العنوان مع إحداثيات GPS */}
-        <Grid item xs={12}>
-          <Accordion
-            expanded={expandedSections.address}
-            onChange={() => toggleSection('address')}
-            sx={{ mt: 1 }}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <LocationIcon color="primary" />
-                <Typography>العنوان والإحداثيات</Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    name="address.street"
-                    label="الشارع"
-                    value={formik.values.address.street}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="address.city"
-                    label="المدينة"
-                    value={formik.values.address.city}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="address.state"
-                    label="الولاية/المنطقة"
-                    value={formik.values.address.state}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="address.country"
-                    label="الدولة"
-                    value={formik.values.address.country}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="address.postalCode"
-                    label="الرمز البريدي"
-                    value={formik.values.address.postalCode}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
+            {store.deliveryInfo?.hasDelivery && (
+              <Chip
+                label={`توصيل: ${store.deliveryInfo.deliveryFee} CFA`}
+                color="info"
+                size="small"
+                variant="outlined"
+                sx={{ mt: 1 }}
+              />
+            )}
+          </Grid>
 
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 1 }}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <MapIcon fontSize="small" />
-                      <Typography variant="caption">إحداثيات الموقع (GPS)</Typography>
-                    </Box>
-                  </Divider>
-                </Grid>
+          {/* القسم الأيسر - المعلومات التفصيلية */}
+          <Grid item xs={12} md={8}>
+            {/* معلومات المتجر */}
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Storefront fontSize="small" color="primary" />
+              معلومات المتجر
+            </Typography>
 
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>الوصف:</strong> {store.description || '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>التصنيف:</strong> {store.category || '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>عدد المنتجات:</strong> {store.stats?.productsCount || store.productsCount || 0}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>رقم الهاتف:</strong> {store.phone || '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>البريد الإلكتروني:</strong> {store.email || '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>العنوان:</strong> {store.address?.street || '-'}
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
+                  {store.address?.city && `${store.address.city}, `}
+                  {store.address?.state && `${store.address.state}, `}
+                  {store.address?.country || 'النيجر'}
+                  {store.address?.postalCode && ` - ${store.address.postalCode}`}
+                </Typography>
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* معلومات التاجر (المالك) */}
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Person fontSize="small" color="secondary" />
+              معلومات التاجر
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={3} textAlign="center">
+                      <Avatar
+                        src={typeof vendor === 'object' ? vendor?.avatar : null}
+                        sx={{ width: 64, height: 64, mx: 'auto' }}
+                      >
+                        {vendorName?.charAt(0) || 'T'}
+                      </Avatar>
+                      {vendorIsVerified && (
+                        <Chip
+                          label="موثق"
+                          size="small"
+                          color="success"
+                          icon={<Verified fontSize="small" />}
+                          sx={{ mt: 1 }}
+                        />
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={9}>
+                      <Typography variant="body1" gutterBottom>
+                        <strong>الاسم:</strong> {vendorName}
+                      </Typography>
+                      {vendorPhone && (
+                        <Typography variant="body1" gutterBottom>
+                          <strong>رقم الهاتف:</strong> {vendorPhone}
+                        </Typography>
+                      )}
+                      {vendorEmail && (
+                        <Typography variant="body1" gutterBottom>
+                          <strong>البريد الإلكتروني:</strong> {vendorEmail}
+                        </Typography>
+                      )}
+                      {!vendorPhone && !vendorEmail && (
+                        <Typography variant="body2" color="textSecondary">
+                          لا توجد معلومات إضافية متاحة
+                        </Typography>
+                      )}
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* معلومات إضافية */}
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Schedule fontSize="small" color="info" />
+              معلومات إضافية
+            </Typography>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" color="textSecondary">
+                  <strong>تاريخ التسجيل:</strong>
+                </Typography>
+                <Typography variant="body1">
+                  {formatDate(store.createdAt)}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" color="textSecondary">
+                  <strong>آخر تحديث:</strong>
+                </Typography>
+                <Typography variant="body1">
+                  {formatDate(store.updatedAt)}
+                </Typography>
+              </Grid>
+              {store.deliveryInfo?.estimatedDeliveryTime && (
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="address.latitude"
-                    label="خط العرض (Latitude)"
-                    type="number"
-                    value={formik.values.address.latitude}
-                    onChange={formik.handleChange}
-                    error={formik.touched.address?.latitude && Boolean(formik.errors.address?.latitude)}
-                    helperText={formik.touched.address?.latitude && formik.errors.address?.latitude}
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">🌐</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="address.longitude"
-                    label="خط الطول (Longitude)"
-                    type="number"
-                    value={formik.values.address.longitude}
-                    onChange={formik.handleChange}
-                    error={formik.touched.address?.longitude && Boolean(formik.errors.address?.longitude)}
-                    helperText={formik.touched.address?.longitude && formik.errors.address?.longitude}
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">🌐</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<MapIcon />}
-                    onClick={getCurrentLocation}
-                    disabled={loading}
-                    fullWidth
-                  >
-                    استخدام موقعي الحالي
-                  </Button>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    اضغط الزر لتحديد إحداثيات موقع المتجر تلقائياً
+                  <Typography variant="body2" color="textSecondary">
+                    <strong>وقت التوصيل المقدر:</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    {store.deliveryInfo.estimatedDeliveryTime} دقيقة
                   </Typography>
                 </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-        </Grid>
-
-        {/* معلومات التوصيل */}
-        <Grid item xs={12}>
-          <Accordion
-            expanded={expandedSections.delivery}
-            onChange={() => toggleSection('delivery')}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <DeliveryIcon color="primary" />
-                <Typography>معلومات التوصيل</Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
+              )}
+              {store.deliveryInfo?.minOrderAmount > 0 && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    <strong>الحد الأدنى للطلب:</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    {store.deliveryInfo.minOrderAmount} CFA
+                  </Typography>
+                </Grid>
+              )}
+              {store.deliveryInfo?.freeDeliveryThreshold > 0 && (
                 <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        name="deliveryInfo.hasDelivery"
-                        checked={formik.values.deliveryInfo.hasDelivery}
-                        onChange={formik.handleChange}
-                        disabled={loading}
-                      />
-                    }
-                    label="يتوفر توصيل"
-                  />
+                  <Typography variant="body2" color="success.main">
+                    <strong>توصيل مجاني للطلبات التي تزيد عن {store.deliveryInfo.freeDeliveryThreshold} CFA</strong>
+                  </Typography>
                 </Grid>
+              )}
+            </Grid>
 
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="deliveryInfo.deliveryFee"
-                    label="رسوم التوصيل"
-                    type="number"
-                    value={formik.values.deliveryInfo.deliveryFee}
-                    onChange={formik.handleChange}
-                    error={formik.touched.deliveryInfo?.deliveryFee && Boolean(formik.errors.deliveryInfo?.deliveryFee)}
-                    helperText={formik.touched.deliveryInfo?.deliveryFee && formik.errors.deliveryInfo?.deliveryFee}
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">CFA</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="deliveryInfo.minOrderAmount"
-                    label="الحد الأدنى للطلب"
-                    type="number"
-                    value={formik.values.deliveryInfo.minOrderAmount}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">CFA</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="deliveryInfo.estimatedDeliveryTime"
-                    label="الوقت المقدر للتوصيل (دقائق)"
-                    type="number"
-                    value={formik.values.deliveryInfo.estimatedDeliveryTime}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="deliveryInfo.deliveryRadius"
-                    label="نطاق التوصيل (كم)"
-                    type="number"
-                    value={formik.values.deliveryInfo.deliveryRadius}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    name="deliveryInfo.freeDeliveryThreshold"
-                    label="الحد الأدنى للتوصيل المجاني"
-                    type="number"
-                    value={formik.values.deliveryInfo.freeDeliveryThreshold}
-                    onChange={formik.handleChange}
-                    disabled={loading}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">CFA</InputAdornment>,
-                    }}
-                  />
-                </Grid>
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
+            {/* العلامات (Tags) */}
+            {store.tags && store.tags.length > 0 && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" gutterBottom>
+                  الكلمات المفتاحية:
+                </Typography>
+                <Box display="flex" gap={1} flexWrap="wrap">
+                  {store.tags.map((tag, index) => (
+                    <Chip key={index} label={tag} size="small" variant="outlined" />
+                  ))}
+                </Box>
+              </>
+            )}
+          </Grid>
         </Grid>
-
-        {/* ساعات العمل */}
-        <Grid item xs={12}>
-          <Accordion
-            expanded={expandedSections.hours}
-            onChange={() => toggleSection('hours')}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <ScheduleIcon color="primary" />
-                <Typography>ساعات العمل</Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Grid container spacing={2}>
-                {daysOfWeek.map((day) => (
-                  <Grid item xs={12} key={day.value}>
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                      <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={3}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                name={`openingHours.${day.value}.isOpen`}
-                                checked={formik.values.openingHours[day.value]?.isOpen}
-                                onChange={formik.handleChange}
-                                disabled={loading}
-                              />
-                            }
-                            label={day.label}
-                          />
-                        </Grid>
-                        {formik.values.openingHours[day.value]?.isOpen && (
-                          <>
-                            <Grid item xs={12} sm={4}>
-                              <TextField
-                                fullWidth
-                                name={`openingHours.${day.value}.open`}
-                                label="وقت الفتح"
-                                type="time"
-                                value={formik.values.openingHours[day.value]?.open || '09:00'}
-                                onChange={formik.handleChange}
-                                disabled={loading}
-                                InputLabelProps={{ shrink: true }}
-                              />
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                              <TextField
-                                fullWidth
-                                name={`openingHours.${day.value}.close`}
-                                label="وقت الإغلاق"
-                                type="time"
-                                value={formik.values.openingHours[day.value]?.close || '22:00'}
-                                onChange={formik.handleChange}
-                                disabled={loading}
-                                InputLabelProps={{ shrink: true }}
-                              />
-                            </Grid>
-                          </>
-                        )}
-                      </Grid>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-            </AccordionDetails>
-          </Accordion>
-        </Grid>
-      </Grid>
-
-      <Box display="flex" justifyContent="flex-end" gap={2} sx={{ mt: 3 }}>
-        <Button onClick={onCancel} disabled={loading}>
-          إلغاء
-        </Button>
-        <Button type="submit" variant="contained" disabled={loading}>
-          {loading ? <CircularProgress size={24} /> : (isEdit ? 'تحديث' : 'إضافة')}
-        </Button>
-      </Box>
-    </form>
+      </Paper>
+    </Box>
   );
 }
 </file>
@@ -9026,84 +8386,79 @@ export default function System() {
 </file>
 
 <file path="src/utils/helpers.js">
-// src/utils/helpers.js - دوال مساعدة
+// src/utils/helpers.js - دوال مساعدة موحدة
 
 /**
- * الحصول على ID بأمان (يدعم _id و id)
- * @param {Object} item - العنصر
- * @returns {string|null} - الـ ID أو null
+ * الحصول على ID بأمان - موحد لاستخدام _id
+ * @param {Object} item - العنصر (مستخدم، متجر، منتج، طلب)
+ * @returns {string|null}
  */
 export const getId = (item) => {
   if (!item) return null;
+  // إعطاء أولوية لـ _id كما في الـ Backend
   return item._id || item.id || null;
 };
 
 /**
- * توحيد IDs في مصفوفة
- * @param {Array} items - المصفوفة
- * @returns {Array} - مصفوفة مع توحيد الـ IDs
+ * توحيد البيانات المستلمة من الـ API
+ * تضمن أن كل كائن له _id
+ * @param {Object|Array} data - البيانات المستلمة
+ * @returns {Object|Array} - البيانات بعد التوحيد
  */
-export const normalizeItems = (items) => {
-  if (!Array.isArray(items)) return [];
-  return items.map(item => ({
-    ...item,
-    _id: item._id || item.id,
-  }));
+export const normalizeData = (data) => {
+  if (!data) return data;
+  
+  // إذا كانت مصفوفة
+  if (Array.isArray(data)) {
+    return data.map(item => normalizeItem(item));
+  }
+  
+  // إذا كان كائن
+  if (typeof data === 'object') {
+    return normalizeItem(data);
+  }
+  
+  return data;
 };
 
 /**
- * إنشاء key فريد للـ React
+ * توحيد عنصر واحد
+ * @param {Object} item - العنصر
+ * @returns {Object} - العنصر بعد التوحيد
+ */
+const normalizeItem = (item) => {
+  if (!item || typeof item !== 'object') return item;
+  
+  const normalized = { ...item };
+  
+  // التأكد من وجود _id
+  if (item._id) {
+    normalized._id = item._id;
+  } else if (item.id) {
+    normalized._id = item.id;
+    // احتفظ بـ id للتوافق مع الإصدارات القديمة
+    normalized.id = item.id;
+  }
+  
+  // معالجة الكائنات المتداخلة
+  Object.keys(normalized).forEach(key => {
+    if (normalized[key] && typeof normalized[key] === 'object') {
+      normalized[key] = normalizeData(normalized[key]);
+    }
+  });
+  
+  return normalized;
+};
+
+/**
+ * إنشاء مفتاح فريد لـ React
  * @param {Object} item - العنصر
  * @param {number} index - الفهرس
- * @returns {string} - المفتاح
+ * @returns {string}
  */
 export const getReactKey = (item, index) => {
   const id = getId(item);
-  return id ? String(id) : `item-${index}-${Date.now()}`;
-};
-
-/**
- * معالجة الأخطاء بشكل موحد
- * @param {Error} error - الخطأ
- * @param {Function} onError - دالة معالجة إضافية
- * @returns {string} - رسالة الخطأ
- */
-export const handleError = (error, onError = null) => {
-  console.error('Error:', error);
-  
-  let message = 'حدث خطأ غير متوقع';
-  
-  if (error.response) {
-    // خطأ من الخادم
-    message = error.response.data?.message || 
-              error.response.data?.error || 
-              `خطأ ${error.response.status}`;
-  } else if (error.request) {
-    // لم يتم استلام رد
-    message = 'لا يمكن الاتصال بالخادم';
-  } else if (error.message) {
-    message = error.message;
-  }
-  
-  if (onError && typeof onError === 'function') {
-    onError(message);
-  }
-  
-  return message;
-};
-
-/**
- * تأخير التنفيذ (لـ debounce)
- * @param {Function} fn - الدالة
- * @param {number} delay - التأخير بالمللي ثانية
- * @returns {Function} - الدالة مع debounce
- */
-export const debounce = (fn, delay = 500) => {
-  let timeoutId;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
+  return id ? String(id) : `item-${index}`;
 };
 
 /**
@@ -9224,6 +8579,41 @@ export const formatDateSafe = (date) => {
   } catch {
     return '-';
   }
+};
+
+/**
+ * معالجة الأخطاء بشكل موحد
+ * @param {Error} error - الخطأ
+ * @param {string} defaultMessage - الرسالة الافتراضية
+ * @returns {string} - رسالة الخطأ
+ */
+export const handleError = (error, defaultMessage = 'حدث خطأ غير متوقع') => {
+  console.error('Error:', error);
+  
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.data?.error) {
+    return error.response.data.error;
+  }
+  if (error.message) {
+    return error.message;
+  }
+  return defaultMessage;
+};
+
+/**
+ * تأخير التنفيذ (لـ debounce)
+ * @param {Function} fn - الدالة
+ * @param {number} delay - التأخير بالمللي ثانية
+ * @returns {Function} - الدالة مع debounce
+ */
+export const debounce = (fn, delay = 500) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
 };
 </file>
 
@@ -9437,10 +8827,11 @@ export const reverseGeocode = async (lat, lng, apiKey) => {
 </file>
 
 <file path="src/api/client.js">
-// src/api/client.js - النسخة المصححة بالكامل
+// src/api/client.js - مع interceptor لتوحيد البيانات
 
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { normalizeData } from '../utils/helpers';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
@@ -9491,18 +8882,51 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor - مع توحيد البيانات
 apiClient.interceptors.response.use(
   (response) => {
+    // توحيد البيانات في جميع الاستجابات
+    if (response.data) {
+      // توحيد البيانات الرئيسية
+      response.data = normalizeData(response.data);
+      
+      // إذا كان هناك data.data (حسب هيكل الـ API)
+      if (response.data.data) {
+        response.data.data = normalizeData(response.data.data);
+      }
+      
+      // إذا كان هناك data.results (لـ pagination)
+      if (response.data.results) {
+        response.data.results = normalizeData(response.data.results);
+      }
+      
+      // إذا كان هناك data.orders أو data.users أو data.stores
+      if (response.data.orders) {
+        response.data.orders = normalizeData(response.data.orders);
+      }
+      if (response.data.users) {
+        response.data.users = normalizeData(response.data.users);
+      }
+      if (response.data.stores) {
+        response.data.stores = normalizeData(response.data.stores);
+      }
+      if (response.data.products) {
+        response.data.products = normalizeData(response.data.products);
+      }
+      if (response.data.drivers) {
+        response.data.drivers = normalizeData(response.data.drivers);
+      }
+      if (response.data.vendors) {
+        response.data.vendors = normalizeData(response.data.vendors);
+      }
+    }
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
     
-    // ✅ تصحيح: استخدام /auth/refresh (بدون -token)
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // إذا كان هناك عملية refresh قيد التنفيذ، انتظر
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -9523,7 +8947,6 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token');
         }
         
-        // ✅ المسار الصحيح حسب Backend
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
@@ -9535,7 +8958,6 @@ apiClient.interceptors.response.use(
           localStorage.setItem('refreshToken', newRefreshToken);
         }
         
-        // معالجة الطلبات المعلقة
         processQueue(null, accessToken);
         
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -9557,7 +8979,6 @@ apiClient.interceptors.response.use(
     
     const errorMessage = error.response?.data?.message || error.message || 'حدث خطأ غير متوقع';
     
-    // معالجة الأخطاء حسب نوعها
     if (error.response?.status === 403) {
       toast.error('ليس لديك صلاحية للوصول إلى هذا المورد');
     } else if (error.response?.status === 404) {
@@ -9567,7 +8988,6 @@ apiClient.interceptors.response.use(
     } else if (error.response?.status >= 500) {
       toast.error('خطأ في الخادم، الرجاء المحاولة لاحقاً');
     } else if (error.response?.status !== 401) {
-      // لا نعرض رسالة لـ 401 لأننا نتعامل معها بشكل منفصل
       toast.error(errorMessage);
     }
     
@@ -10323,7 +9743,7 @@ export default function RecentOrders({ orders = [] }) {
 </file>
 
 <file path="src/pages/Drivers/index.jsx">
-// src/pages/Drivers/index.jsx - نسخة مصححة بالكامل
+// src/pages/Drivers/index.jsx - نسخة كاملة مع _id
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -10365,7 +9785,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import DriverDetails from './components/DriverDetails';
 import DriverLocation from './components/DriverLocation';
 import { formatDate, formatCurrency } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
 export default function Drivers() {
   const { isMobile, fontSize, spacing } = useResponsive();
@@ -10384,7 +9804,6 @@ export default function Drivers() {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // جلب المندوبين
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['drivers', page, pageSize, filters],
     () => driversService.getDrivers({
@@ -10409,9 +9828,8 @@ export default function Drivers() {
   const drivers = data?.data || [];
   const totalCount = data?.pagination?.total || 0;
 
-  // تحديث حالة المندوب
   const updateStatusMutation = useMutation(
-    ({ id, isActive }) => driversService.updateDriverStatus(id, { isActive }),
+    ({ driverId, isActive }) => driversService.updateDriverStatus(driverId, { isActive }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('drivers');
@@ -10423,9 +9841,8 @@ export default function Drivers() {
     }
   );
 
-  // توثيق المندوب
   const verifyMutation = useMutation(
-    (id) => driversService.verifyDriver(id),
+    (driverId) => driversService.verifyDriver(driverId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('drivers');
@@ -10437,7 +9854,6 @@ export default function Drivers() {
     }
   );
 
-  // ✅ دوال المعالجة
   const handleViewDetails = useCallback((driver) => {
     setSelectedDriver(driver);
     setOpenDetails(true);
@@ -10449,11 +9865,11 @@ export default function Drivers() {
   }, []);
 
   const handleToggleStatus = useCallback((driver) => {
-    updateStatusMutation.mutate({ id: getId(driver), isActive: !driver.isActive });
+    updateStatusMutation.mutate({ driverId: driver._id, isActive: !driver.isActive });
   }, [updateStatusMutation]);
 
   const handleVerify = useCallback((driver) => {
-    verifyMutation.mutate(getId(driver));
+    verifyMutation.mutate(driver._id);
   }, [verifyMutation]);
 
   const resetFilters = useCallback(() => {
@@ -10465,7 +9881,6 @@ export default function Drivers() {
     setPage(0);
   }, []);
 
-  // ✅ إحصائيات سريعة
   const statsCards = useMemo(() => {
     const activeDrivers = drivers.filter(d => d.isActive).length;
     const onlineDrivers = drivers.filter(d => d.isOnline).length;
@@ -10479,7 +9894,6 @@ export default function Drivers() {
     ];
   }, [drivers, totalCount]);
 
-  // ✅ أعمدة الجدول
   const columns = useMemo(() => [
     {
       field: 'avatar',
@@ -10533,7 +9947,6 @@ export default function Drivers() {
       hideOnDesktop: false,
       renderCell: (params) => {
         const driver = params.row;
-        const driverId = getId(driver);
         return (
           <Box display="flex" gap={0.5}>
             <Tooltip title="عرض التفاصيل">
@@ -10644,80 +10057,76 @@ export default function Drivers() {
             setOpenDetails(true);
           }}
           emptyMessage="لا يوجد مندوبين"
-          renderMobileCard={(driver) => {
-            const driverId = getId(driver);
-            return (
-              <Paper 
-                key={driverId} 
-                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
-                onClick={() => {
-                  setSelectedDriver(driver);
-                  setOpenDetails(true);
-                }}
-              >
-                <Box display="flex" gap={2}>
-                  <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
-                    {driver.name?.charAt(0)}
-                  </Avatar>
-                  <Box flex={1}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {driver.name}
-                      </Typography>
-                      <Chip 
-                        label={driver.isOnline ? 'متصل' : 'غير متصل'} 
-                        size="small" 
-                        color={driver.isOnline ? 'success' : 'default'} 
-                      />
-                    </Box>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      {driver.phone}
+          renderMobileCard={(driver, index) => (
+            <Paper 
+              key={getReactKey(driver, index)} 
+              sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
+              onClick={() => {
+                setSelectedDriver(driver);
+                setOpenDetails(true);
+              }}
+            >
+              <Box display="flex" gap={2}>
+                <Avatar src={driver.avatar} sx={{ width: 50, height: 50 }}>
+                  {driver.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {driver.name}
                     </Typography>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                      <Rating value={driver.rating || 0} readOnly size="small" />
-                      {driver.isVerified && <Verified fontSize="small" color="primary" />}
-                    </Box>
+                    <Chip 
+                      label={driver.isOnline ? 'متصل' : 'غير متصل'} 
+                      size="small" 
+                      color={driver.isOnline ? 'success' : 'default'} 
+                    />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {driver.phone}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Rating value={driver.rating || 0} readOnly size="small" />
+                    {driver.isVerified && <Verified fontSize="small" color="primary" />}
                   </Box>
                 </Box>
-                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+              </Box>
+              <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    handleViewLocation(driver);
+                  }}
+                >
+                  <LocationOn fontSize="small" />
+                </IconButton>
+                {!driver.isVerified && (
                   <IconButton 
                     size="small" 
                     onClick={(e) => { 
                       e.stopPropagation(); 
-                      handleViewLocation(driver);
+                      handleVerify(driver);
                     }}
+                    color="primary"
                   >
-                    <LocationOn fontSize="small" />
+                    <Verified fontSize="small" />
                   </IconButton>
-                  {!driver.isVerified && (
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleVerify(driver);
-                      }}
-                      color="primary"
-                    >
-                      <Verified fontSize="small" />
-                    </IconButton>
-                  )}
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      handleToggleStatus(driver);
-                    }}
-                  >
-                    {driver.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
-                  </IconButton>
-                </Box>
-              </Paper>
-            );
-          }}
+                )}
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    handleToggleStatus(driver);
+                  }}
+                >
+                  {driver.isActive ? <Block fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
+                </IconButton>
+              </Box>
+            </Paper>
+          )}
         />
       </Paper>
 
-      {/* حوار تفاصيل المندوب */}
       <ResponsiveDialog 
         open={openDetails} 
         onClose={() => setOpenDetails(false)} 
@@ -10728,7 +10137,6 @@ export default function Drivers() {
         {selectedDriver && <DriverDetails driver={selectedDriver} />}
       </ResponsiveDialog>
 
-      {/* حوار موقع المندوب */}
       <ResponsiveDialog 
         open={openLocation} 
         onClose={() => setOpenLocation(false)} 
@@ -10736,10 +10144,9 @@ export default function Drivers() {
         maxWidth="md" 
         actions={<Button onClick={() => setOpenLocation(false)}>إغلاق</Button>}
       >
-        {selectedDriver && <DriverLocation driverId={getId(selectedDriver)} />}
+        {selectedDriver && <DriverLocation driverId={selectedDriver._id} />}
       </ResponsiveDialog>
 
-      {/* إشعارات */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={6000} 
@@ -10754,7 +10161,7 @@ export default function Drivers() {
 </file>
 
 <file path="src/pages/Orders/index.jsx">
-// src/pages/Orders/index.jsx - نسخة مصححة بالكامل
+// src/pages/Orders/index.jsx - نسخة كاملة مع _id
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -10778,7 +10185,6 @@ import {
   Cancel,
   Refresh,
   CheckCircle,
-  Block,
 } from '@mui/icons-material';
 import { ordersService } from '../../api';
 import ResponsiveTable from '../../components/Common/ResponsiveTable';
@@ -10789,7 +10195,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import OrderDetails from './components/OrderDetails';
 import AssignDriverModal from './components/AssignDriverModal';
 import { formatDate, formatCurrency } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
 const statusColors = {
   pending: { label: 'قيد الانتظار', color: '#ff9800', bg: '#ff980020' },
@@ -10829,7 +10235,6 @@ export default function Orders() {
   const [cancelReason, setCancelReason] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // جلب الطلبات
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['orders', page, pageSize, filters],
     () => ordersService.getOrders({
@@ -10856,9 +10261,8 @@ export default function Orders() {
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
-  // إلغاء طلب
   const cancelMutation = useMutation(
-    ({ id, reason }) => ordersService.forceCancelOrder(id, { reason }),
+    ({ orderId, reason }) => ordersService.forceCancelOrder(orderId, { reason }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('orders');
@@ -10876,7 +10280,6 @@ export default function Orders() {
     }
   );
 
-  // ✅ دوال المعالجة
   const handleViewDetails = useCallback((order) => {
     setSelectedOrder(order);
     setOpenDetails(true);
@@ -10894,7 +10297,7 @@ export default function Orders() {
 
   const confirmCancel = useCallback(() => {
     if (selectedOrder && cancelReason.trim()) {
-      cancelMutation.mutate({ id: getId(selectedOrder), reason: cancelReason });
+      cancelMutation.mutate({ orderId: selectedOrder._id, reason: cancelReason });
     }
   }, [selectedOrder, cancelReason, cancelMutation]);
 
@@ -10908,7 +10311,6 @@ export default function Orders() {
     setPage(0);
   }, []);
 
-  // ✅ إحصائيات سريعة
   const statsCards = useMemo(() => [
     { title: 'إجمالي الطلبات', value: stats.totalOrders?.toLocaleString() || 0, icon: CheckCircle, color: '#2196f3' },
     { title: 'طلبات مكتملة', value: stats.completedOrders?.toLocaleString() || 0, icon: CheckCircle, color: '#4caf50' },
@@ -10916,9 +10318,14 @@ export default function Orders() {
     { title: 'إجمالي الإيرادات', value: formatCurrency(stats.totalRevenue || 0), icon: Refresh, color: '#ff9800' },
   ], [stats]);
 
-  // ✅ أعمدة الجدول
   const columns = useMemo(() => [
-    { field: '_id', headerName: 'رقم الطلب', width: 220, hideOnMobile: true },
+    { 
+      field: '_id', 
+      headerName: 'رقم الطلب', 
+      width: 220, 
+      hideOnMobile: true,
+      renderCell: (params) => `#${params.row._id?.slice(-6)}`
+    },
     { 
       field: 'user', 
       headerName: 'العميل', 
@@ -11096,13 +10503,12 @@ export default function Orders() {
             setOpenDetails(true);
           }}
           emptyMessage="لا توجد طلبات"
-          renderMobileCard={(order) => {
+          renderMobileCard={(order, index) => {
             const status = statusColors[order.status] || { label: order.status, color: '#999', bg: '#99920' };
-            const orderId = getId(order);
             const canModify = order.status !== 'delivered' && order.status !== 'cancelled';
             return (
               <Paper 
-                key={orderId} 
+                key={getReactKey(order, index)} 
                 sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
                 onClick={() => {
                   setSelectedOrder(order);
@@ -11111,7 +10517,7 @@ export default function Orders() {
               >
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                   <Typography variant="subtitle2" fontWeight="bold">
-                    #{orderId?.slice(-6) || order._id?.slice(-6)}
+                    #{order._id?.slice(-6)}
                   </Typography>
                   <Chip
                     label={status.label}
@@ -11162,22 +10568,20 @@ export default function Orders() {
         />
       </Paper>
 
-      {/* تفاصيل الطلب */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
-        title={`تفاصيل الطلب #${getId(selectedOrder)?.slice(-6) || ''}`}
+        title={`تفاصيل الطلب #${selectedOrder?._id?.slice(-6) || ''}`}
         maxWidth="md"
         actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
       >
         {selectedOrder && <OrderDetails order={selectedOrder} />}
       </ResponsiveDialog>
 
-      {/* تعيين مندوب */}
       <AssignDriverModal
         open={openAssignDriver}
         onClose={() => setOpenAssignDriver(false)}
-        orderId={getId(selectedOrder)}
+        orderId={selectedOrder?._id}
         onSuccess={() => {
           setOpenAssignDriver(false);
           queryClient.invalidateQueries('orders');
@@ -11185,7 +10589,6 @@ export default function Orders() {
         }}
       />
 
-      {/* إلغاء الطلب */}
       <ResponsiveDialog
         open={openCancelDialog}
         onClose={() => setOpenCancelDialog(false)}
@@ -11217,7 +10620,6 @@ export default function Orders() {
         />
       </ResponsiveDialog>
 
-      {/* إشعارات */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={6000} 
@@ -11231,538 +10633,1016 @@ export default function Orders() {
 }
 </file>
 
-<file path="src/pages/Stores/index.jsx">
-// src/pages/Stores/index.jsx - نسخة مصححة بالكامل
-
-import { useState, useCallback, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+<file path="src/pages/Stores/components/StoreForm.jsx">
+import { useState, useEffect } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import {
-  Box,
-  Paper,
-  Typography,
   TextField,
   MenuItem,
   Button,
-  Chip,
-  IconButton,
-  Tooltip,
+  Box,
   Grid,
-  Card,
-  CardContent,
-  Avatar,
-  Rating,
+  Switch,
+  FormControlLabel,
   Alert,
-  Snackbar,
+  CircularProgress,
+  InputAdornment,
+  Typography,
+  Divider,
+  Paper,
+  Chip,
+  Stack,
+  IconButton,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Avatar,
+  Badge,
 } from '@mui/material';
 import {
-  Edit,
-  Delete,
-  Visibility,
-  Verified,
-  Storefront,
-  Refresh,
-  Add,
-  ToggleOn,
-  ToggleOff,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  ExpandMore as ExpandMoreIcon,
+  LocationOn as LocationIcon,
+  DeliveryDining as DeliveryIcon,
+  Schedule as ScheduleIcon,
+  Map as MapIcon,
+  CloudUpload as CloudUploadIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
-import { storesService } from '../../api';
-import ResponsiveTable from '../../components/Common/ResponsiveTable';
-import ResponsiveStatsCards from '../../components/Common/ResponsiveStatsCards';
-import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
-import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
-import { useResponsive } from '../../hooks/useResponsive';
-import StoreForm from './components/StoreForm';
-import { formatDate } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { storesService, vendorsService } from '../../../api';
+
+const validationSchema = Yup.object({
+  name: Yup.string()
+    .required('اسم المتجر مطلوب')
+    .min(3, 'الاسم يجب أن يكون 3 أحرف على الأقل')
+    .max(100, 'الاسم يجب أن لا يتجاوز 100 حرف'),
+  description: Yup.string()
+    .max(500, 'الوصف طويل جداً')
+    .required('الوصف مطلوب'),
+  category: Yup.string().required('التصنيف مطلوب'),
+  owner: Yup.string().required('مالك المتجر مطلوب'),
+  phone: Yup.string()
+    .required('رقم الهاتف مطلوب')
+    .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{4,6}$/, 'رقم الهاتف غير صالح'),
+  email: Yup.string().email('بريد إلكتروني غير صحيح'),
+  website: Yup.string().url('رابط غير صحيح'),
+  address: Yup.object({
+    street: Yup.string().max(200),
+    city: Yup.string().max(100),
+    state: Yup.string().max(100),
+    country: Yup.string().max(100),
+    postalCode: Yup.string().max(20),
+    latitude: Yup.number()
+      .min(-90, 'خط العرض يجب أن يكون بين -90 و 90')
+      .max(90, 'خط العرض يجب أن يكون بين -90 و 90'),
+    longitude: Yup.number()
+      .min(-180, 'خط الطول يجب أن يكون بين -180 و 180')
+      .max(180, 'خط الطول يجب أن يكون بين -180 و 180'),
+  }),
+  deliveryInfo: Yup.object({
+    hasDelivery: Yup.boolean(),
+    deliveryFee: Yup.number().min(0, 'رسوم التوصيل يجب أن تكون 0 أو أكثر'),
+    minOrderAmount: Yup.number().min(0, 'الحد الأدنى للطلب يجب أن يكون 0 أو أكثر'),
+    estimatedDeliveryTime: Yup.number().min(5, 'الوقت المقدر يجب أن لا يقل عن 5 دقائق').max(120, 'الوقت المقدر يجب أن لا يتجاوز 120 دقيقة'),
+    deliveryRadius: Yup.number().min(1, 'نطاق التوصيل يجب أن لا يقل عن 1 كم').max(50, 'نطاق التوصيل يجب أن لا يتجاوز 50 كم'),
+    freeDeliveryThreshold: Yup.number().min(0),
+  }),
+  tags: Yup.array().of(Yup.string()),
+  isOpen: Yup.boolean(),
+});
 
 const categories = [
-  { value: 'all', label: 'الكل' },
   { value: 'restaurant', label: 'مطعم' },
   { value: 'cafe', label: 'مقهى' },
   { value: 'fast_food', label: 'وجبات سريعة' },
   { value: 'bakery', label: 'مخبز' },
   { value: 'grocery', label: 'بقالة' },
+  { value: 'supermarket', label: 'سوبر ماركت' },
   { value: 'pharmacy', label: 'صيدلية' },
+  { value: 'clothing', label: 'ملابس' },
+  { value: 'electronics', label: 'إلكترونيات' },
+  { value: 'other', label: 'أخرى' },
 ];
 
-export default function Stores() {
-  const { isMobile, fontSize, spacing } = useResponsive();
-  const queryClient = useQueryClient();
-  
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
-  const [filters, setFilters] = useState({
-    search: '',
-    category: 'all',
-    status: 'all',
+const daysOfWeek = [
+  { value: 'monday', label: 'الإثنين' },
+  { value: 'tuesday', label: 'الثلاثاء' },
+  { value: 'wednesday', label: 'الأربعاء' },
+  { value: 'thursday', label: 'الخميس' },
+  { value: 'friday', label: 'الجمعة' },
+  { value: 'saturday', label: 'السبت' },
+  { value: 'sunday', label: 'الأحد' },
+];
+
+export default function StoreForm({ store, onSuccess, onCancel }) {
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [expandedSections, setExpandedSections] = useState({
+    address: false,
+    delivery: false,
+    hours: false,
   });
-  const [selectedStore, setSelectedStore] = useState(null);
-  const [openForm, setOpenForm] = useState(false);
-  const [openDetails, setOpenDetails] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // ✅ States لرفع الملفات
+  const [logoFile, setLogoFile] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(store?.logo || null);
+  const [coverPreview, setCoverPreview] = useState(store?.coverImage || null);
+  
+  // ✅ States لجلب التجار
+  const [vendors, setVendors] = useState([]);
+  const [vendorsLoading, setVendorsLoading] = useState(false);
+  
+  const isEdit = !!store;
 
-  // جلب المتاجر
-  const { data, isLoading, refetch, isFetching } = useQuery(
-    ['stores', page, pageSize, filters],
-    () => storesService.getStores({
-      page: page + 1,
-      limit: pageSize,
-      search: filters.search || undefined,
-      category: filters.category !== 'all' ? filters.category : undefined,
-      isOpen: filters.status !== 'all' ? filters.status === 'open' : undefined,
-    }),
-    {
-      keepPreviousData: true,
-      onError: (error) => {
-        setSnackbar({ 
-          open: true, 
-          message: handleError(error, 'فشل تحميل بيانات المتاجر'), 
-          severity: 'error' 
-        });
+  // ✅ جلب قائمة التجار عند إنشاء متجر جديد
+  useEffect(() => {
+    if (!isEdit) {
+      const fetchVendors = async () => {
+        setVendorsLoading(true);
+        try {
+          const response = await vendorsService.getVendors({ limit: 100 });
+          // التعامل مع هيكل الاستجابة المختلفة
+          const vendorsList = response.data?.vendors || response.data || [];
+          setVendors(vendorsList);
+          console.log('✅ Vendors loaded:', vendorsList.length);
+        } catch (error) {
+          console.error('❌ Failed to fetch vendors:', error);
+          setError('فشل تحميل قائمة التجار');
+        } finally {
+          setVendorsLoading(false);
+        }
+      };
+      fetchVendors();
+    }
+  }, [isEdit]);
+
+  // ✅ دالة معالجة رفع الشعار
+  const handleLogoChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setLogoFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setLogoPreview(previewUrl);
+    }
+  };
+
+  // ✅ دالة معالجة رفع صورة الغلاف
+  const handleCoverChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setCoverFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setCoverPreview(previewUrl);
+    }
+  };
+
+  // ✅ دالة إزالة الشعار
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(store?.logo || null);
+  };
+
+  // ✅ دالة إزالة صورة الغلاف
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(store?.coverImage || null);
+  };
+
+  // دالة لجلب الموقع الحالي للمستخدم
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('المتصفح لا يدعم تحديد الموقع');
+      return;
+    }
+
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        formik.setFieldValue('address.latitude', position.coords.latitude);
+        formik.setFieldValue('address.longitude', position.coords.longitude);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('❌ Geolocation error:', error);
+        setError('فشل في تحديد الموقع الحالي');
+        setLoading(false);
       }
+    );
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !formik.values.tags.includes(tagInput.trim())) {
+      formik.setFieldValue('tags', [...formik.values.tags, tagInput.trim()]);
+      setTagInput('');
     }
-  );
+  };
 
-  const stores = data?.data || [];
-  const totalCount = data?.pagination?.total || 0;
-  const stats = data?.stats || {};
+  const handleDeleteTag = (tagToDelete) => {
+    formik.setFieldValue('tags', formik.values.tags.filter(tag => tag !== tagToDelete));
+  };
 
-  // حذف متجر
-  const deleteMutation = useMutation(
-    (id) => storesService.deleteStore(id),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('stores');
-        setOpenDeleteDialog(false);
-        setSnackbar({ open: true, message: 'تم حذف المتجر بنجاح', severity: 'success' });
+  const formik = useFormik({
+    initialValues: {
+      name: store?.name || '',
+      description: store?.description || '',
+      category: store?.category || '',
+      owner: store?.owner || store?.ownerId || '',
+      phone: store?.phone || '',
+      email: store?.email || '',
+      website: store?.website || '',
+      isOpen: store?.isOpen !== undefined ? store.isOpen : true,
+      address: {
+        street: store?.address?.street || '',
+        city: store?.address?.city || '',
+        state: store?.address?.state || '',
+        country: store?.address?.country || 'Niger',
+        postalCode: store?.address?.postalCode || '',
+        latitude: store?.address?.latitude || '',
+        longitude: store?.address?.longitude || '',
       },
-      onError: (error) => {
-        setSnackbar({ open: true, message: handleError(error, 'فشل حذف المتجر'), severity: 'error' });
+      deliveryInfo: {
+        hasDelivery: store?.deliveryInfo?.hasDelivery !== undefined ? store.deliveryInfo.hasDelivery : true,
+        deliveryFee: store?.deliveryInfo?.deliveryFee || 0,
+        minOrderAmount: store?.deliveryInfo?.minOrderAmount || 0,
+        estimatedDeliveryTime: store?.deliveryInfo?.estimatedDeliveryTime || 30,
+        deliveryRadius: store?.deliveryInfo?.deliveryRadius || 10,
+        freeDeliveryThreshold: store?.deliveryInfo?.freeDeliveryThreshold || 0,
       },
-    }
-  );
-
-  // توثيق متجر
-  const verifyMutation = useMutation(
-    (id) => storesService.verifyStore(id),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('stores');
-        setSnackbar({ open: true, message: 'تم توثيق المتجر بنجاح', severity: 'success' });
+      tags: store?.tags || [],
+      openingHours: store?.openingHours || {
+        monday: { open: '09:00', close: '22:00', isOpen: true },
+        tuesday: { open: '09:00', close: '22:00', isOpen: true },
+        wednesday: { open: '09:00', close: '22:00', isOpen: true },
+        thursday: { open: '09:00', close: '22:00', isOpen: true },
+        friday: { open: '09:00', close: '22:00', isOpen: true },
+        saturday: { open: '10:00', close: '23:00', isOpen: true },
+        sunday: { open: '10:00', close: '23:00', isOpen: true },
       },
-      onError: (error) => {
-        setSnackbar({ open: true, message: handleError(error, 'فشل توثيق المتجر'), severity: 'error' });
-      },
-    }
-  );
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      setLoading(true);
+      setError('');
 
-  // تغيير حالة المتجر
-  const toggleStatusMutation = useMutation(
-    (id) => storesService.toggleStoreStatus(id),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('stores');
-        setSnackbar({ open: true, message: 'تم تغيير حالة المتجر', severity: 'success' });
-      },
-      onError: (error) => {
-        setSnackbar({ open: true, message: handleError(error, 'فشل تغيير حالة المتجر'), severity: 'error' });
-      },
-    }
-  );
+      try {
+        const formData = new FormData();
 
-  // ✅ دوال المعالجة
-  const handleViewDetails = useCallback((store) => {
-    setSelectedStore(store);
-    setOpenDetails(true);
-  }, []);
+        // ✅ إضافة الحقول الأساسية
+        formData.append('name', values.name);
+        formData.append('description', values.description);
+        formData.append('category', values.category);
+        formData.append('phone', values.phone);
+        
+        // ✅ إضافة مالك المتجر (التاجر)
+        if (values.owner) {
+          formData.append('owner', values.owner);
+          console.log('📦 Owner ID:', values.owner);
+        }
+        
+        if (values.email) {
+          formData.append('email', values.email);
+        }
+        
+        if (values.website) {
+          formData.append('website', values.website);
+        }
+        
+        formData.append('isOpen', values.isOpen);
+        
+        // ✅ تحويل الكائنات إلى JSON string
+        const addressString = JSON.stringify(values.address);
+        console.log('📦 Address JSON:', addressString);
+        formData.append('address', addressString);
+        
+        const deliveryString = JSON.stringify(values.deliveryInfo);
+        console.log('📦 Delivery JSON:', deliveryString);
+        formData.append('deliveryInfo', deliveryString);
+        
+        const hoursString = JSON.stringify(values.openingHours);
+        console.log('📦 Opening Hours JSON:', hoursString);
+        formData.append('openingHours', hoursString);
+        
+        // ✅ تحويل tags إلى string مفصول بفواصل
+        if (values.tags && values.tags.length > 0) {
+          const tagsString = values.tags.join(',');
+          console.log('📦 Tags:', tagsString);
+          formData.append('tags', tagsString);
+        }
+        
+        // ✅ إضافة الصور إذا وجدت
+        if (logoFile) {
+          console.log('📦 Adding logo file:', logoFile.name);
+          formData.append('logo', logoFile);
+        }
+        
+        if (coverFile) {
+          console.log('📦 Adding cover image file:', coverFile.name);
+          formData.append('coverImage', coverFile);
+        }
 
-  const handleEdit = useCallback((store) => {
-    setSelectedStore(store);
-    setOpenForm(true);
-  }, []);
+        // تسجيل جميع البيانات للـ debugging
+        console.log('📦 FormData entries:');
+        for (let pair of formData.entries()) {
+          if (pair[1] instanceof File) {
+            console.log(pair[0], '=', pair[1].name, '(File)');
+          } else {
+            console.log(pair[0], '=', pair[1]);
+          }
+        }
 
-  const handleDelete = useCallback((store) => {
-    setSelectedStore(store);
-    setOpenDeleteDialog(true);
-  }, []);
+        // إرسال البيانات
+        if (isEdit) {
+          await storesService.updateStore(store._id, formData);
+        } else {
+          await storesService.createStore(formData);
+        }
+        
+        onSuccess();
+      } catch (err) {
+        console.error('❌ Store form error:', err);
+        console.error('❌ Error response:', err.response?.data);
+        setError(err.response?.data?.message || 'حدث خطأ أثناء حفظ المتجر');
+      } finally {
+        setLoading(false);
+      }
+    },
+  });
 
-  const handleVerify = useCallback((store) => {
-    verifyMutation.mutate(getId(store));
-  }, [verifyMutation]);
-
-  const handleToggleStatus = useCallback((store) => {
-    toggleStatusMutation.mutate(getId(store));
-  }, [toggleStatusMutation]);
-
-  const confirmDelete = useCallback(() => {
-    if (selectedStore) {
-      deleteMutation.mutate(getId(selectedStore));
-    }
-  }, [selectedStore, deleteMutation]);
-
-  const resetFilters = useCallback(() => {
-    setFilters({
-      search: '',
-      category: 'all',
-      status: 'all',
-    });
-    setPage(0);
-  }, []);
-
-  // ✅ إحصائيات سريعة
-  const statsCards = useMemo(() => {
-    const activeStores = stores.filter(s => s.isOpen).length;
-    const verifiedStores = stores.filter(s => s.isVerified).length;
-    const avgRating = stores.length > 0 
-      ? (stores.reduce((sum, s) => sum + (s.rating || 0), 0) / stores.length).toFixed(1)
-      : '0';
-    
-    return [
-      { title: 'إجمالي المتاجر', value: totalCount, icon: Storefront, color: '#2196f3' },
-      { title: 'متاجر نشطة', value: activeStores, icon: ToggleOn, color: '#4caf50' },
-      { title: 'متاجر موثقة', value: verifiedStores, icon: Verified, color: '#ff9800' },
-      { title: 'متوسط التقييم', value: avgRating, icon: Rating, color: '#9c27b0' },
-    ];
-  }, [stores, totalCount]);
-
-  // ✅ أعمدة الجدول
-  const columns = useMemo(() => [
-    {
-      field: 'logo',
-      headerName: 'الشعار',
-      width: 80,
-      renderCell: (params) => (
-        <Avatar src={params.value || '/placeholder-store.jpg'} sx={{ width: 40, height: 40, borderRadius: 1 }}>
-          {params.row.name?.charAt(0)}
+  // دالة عرض التاجر في الـ Select
+  const renderVendorValue = (selected) => {
+    const vendor = vendors.find(v => (v._id || v.id) === selected);
+    if (!vendor) return 'اختر التاجر';
+    return (
+      <Box display="flex" alignItems="center" gap={1}>
+        <Avatar src={vendor.avatar} sx={{ width: 28, height: 28 }}>
+          {vendor.name?.charAt(0)}
         </Avatar>
-      ),
-    },
-    { field: 'name', headerName: 'اسم المتجر', width: 180 },
-    { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
-    { field: 'email', headerName: 'البريد الإلكتروني', width: 180 },
-    { field: 'category', headerName: 'التصنيف', width: 120 },
-    {
-      field: 'rating',
-      headerName: 'التقييم',
-      width: 120,
-      renderCell: (params) => (
-        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
-      ),
-    },
-    {
-      field: 'isOpen',
-      headerName: 'الحالة',
-      width: 100,
-      renderCell: (params) => (
-        <Chip
-          label={params.value ? 'مفتوح' : 'مغلق'}
-          size="small"
-          color={params.value ? 'success' : 'error'}
-        />
-      ),
-    },
-    {
-      field: 'isVerified',
-      headerName: 'موثق',
-      width: 80,
-      renderCell: (params) => (
-        params.value ? <Verified color="primary" /> : <Chip label="غير موثق" size="small" variant="outlined" />
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: 'الإجراءات',
-      width: 200,
-      hideOnDesktop: false,
-      renderCell: (params) => {
-        const store = params.row;
-        return (
-          <Box display="flex" gap={0.5}>
-            <Tooltip title="عرض التفاصيل">
-              <IconButton size="small" onClick={() => handleViewDetails(store)}>
-                <Visibility fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="تعديل">
-              <IconButton size="small" onClick={() => handleEdit(store)}>
-                <Edit fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {!store.isVerified && (
-              <Tooltip title="توثيق">
-                <IconButton size="small" onClick={() => handleVerify(store)} color="primary">
-                  <Verified fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Tooltip title={store.isOpen ? 'إغلاق' : 'فتح'}>
-              <IconButton size="small" onClick={() => handleToggleStatus(store)}>
-                {store.isOpen ? <ToggleOff fontSize="small" color="error" /> : <ToggleOn fontSize="small" color="success" />}
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="حذف">
-              <IconButton size="small" onClick={() => handleDelete(store)} color="error">
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        );
-      },
-    },
-  ], [handleViewDetails, handleEdit, handleVerify, handleToggleStatus, handleDelete]);
+        <Typography variant="body2">{vendor.name}</Typography>
+        {vendor.isVerified && (
+          <Chip label="موثق" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
+        )}
+      </Box>
+    );
+  };
 
   return (
-    <Box sx={{ p: spacing.page }}>
-      <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
-        إدارة المتاجر
-      </Typography>
+    <form onSubmit={formik.handleSubmit}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
-      <ResponsiveStatsCards 
-        cards={statsCards} 
-        columnsDesktop={4}
-        columnsTablet={2}
-        columnsMobile={2}
-        spacing={spacing.section}
-      />
-
-      <Paper sx={{ p: spacing.card }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
-            قائمة المتاجر
+      <Grid container spacing={2}>
+        {/* ✅ قسم الصور */}
+        <Grid item xs={12}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            صور المتجر
           </Typography>
-          <Box display="flex" gap={1} flexWrap="wrap">
-            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
-              تحديث
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => {
-                setSelectedStore(null);
-                setOpenForm(true);
-              }}
-              size="small"
-            >
-              {isMobile ? 'جديد' : 'متجر جديد'}
-            </Button>
-          </Box>
-        </Box>
+        </Grid>
 
-        <ResponsiveFilters onReset={resetFilters}>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              fullWidth
-              label="بحث"
-              size="small"
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="اسم المتجر، البريد، رقم الهاتف..."
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              fullWidth
-              select
-              label="التصنيف"
-              size="small"
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-            >
-              {categories.map((cat) => (
-                <MenuItem key={cat.value} value={cat.value}>
-                  {cat.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              fullWidth
-              select
-              label="الحالة"
-              size="small"
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              <MenuItem value="all">الكل</MenuItem>
-              <MenuItem value="open">مفتوح</MenuItem>
-              <MenuItem value="closed">مغلق</MenuItem>
-            </TextField>
-          </Grid>
-        </ResponsiveFilters>
-
-        <ResponsiveTable
-          data={stores}
-          columns={columns}
-          loading={isLoading}
-          onRowClick={(store) => {
-            setSelectedStore(store);
-            setOpenDetails(true);
-          }}
-          emptyMessage="لا توجد متاجر"
-          renderMobileCard={(store) => {
-            const storeId = getId(store);
-            return (
-              <Paper 
-                key={storeId} 
-                sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
-                onClick={() => {
-                  setSelectedStore(store);
-                  setOpenDetails(true);
-                }}
-              >
-                <Box display="flex" gap={2}>
-                  <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
-                    {store.name?.charAt(0)}
-                  </Avatar>
-                  <Box flex={1}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {store.name}
-                      </Typography>
-                      <Chip
-                        label={store.isOpen ? 'مفتوح' : 'مغلق'}
-                        size="small"
-                        color={store.isOpen ? 'success' : 'error'}
-                      />
-                    </Box>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      {store.phone}
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      {store.category}
-                    </Typography>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-                      <Rating value={store.rating || 0} readOnly size="small" />
-                      {store.isVerified && <Verified fontSize="small" color="primary" />}
-                    </Box>
-                  </Box>
-                </Box>
-                <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
-                  {!store.isVerified && (
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleVerify(store);
+        {/* شعار المتجر */}
+        <Grid item xs={12} sm={6}>
+          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              شعار المتجر
+            </Typography>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                badgeContent={
+                  logoPreview && !logoFile && !store?.logo ? null : (
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveLogo}
+                      sx={{
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
                       }}
-                      color="primary"
                     >
-                      <Verified fontSize="small" />
+                      <ClearIcon fontSize="small" />
                     </IconButton>
-                  )}
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      handleToggleStatus(store);
-                    }}
-                  >
-                    {store.isOpen ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
-                  </IconButton>
-                </Box>
-              </Paper>
-            );
-          }}
-        />
-      </Paper>
-
-      {/* نموذج إضافة/تعديل متجر */}
-      <ResponsiveDialog
-        open={openForm}
-        onClose={() => setOpenForm(false)}
-        title={selectedStore ? 'تعديل متجر' : 'إضافة متجر جديد'}
-        maxWidth="md"
-      >
-        <StoreForm
-          store={selectedStore}
-          onSuccess={() => {
-            setOpenForm(false);
-            queryClient.invalidateQueries('stores');
-            setSnackbar({ open: true, message: selectedStore ? 'تم تحديث المتجر' : 'تم إضافة المتجر', severity: 'success' });
-          }}
-          onCancel={() => setOpenForm(false)}
-        />
-      </ResponsiveDialog>
-
-      {/* تفاصيل المتجر */}
-      <ResponsiveDialog
-        open={openDetails}
-        onClose={() => setOpenDetails(false)}
-        title="تفاصيل المتجر"
-        maxWidth="md"
-        actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
-      >
-        {selectedStore && (
-          <Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={4} textAlign="center">
-                <Avatar src={selectedStore.logo || '/placeholder-store.jpg'} sx={{ width: 100, height: 100, mx: 'auto' }}>
-                  {selectedStore.name?.charAt(0)}
+                  )
+                }
+              >
+                <Avatar
+                  src={logoPreview}
+                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
+                  variant="rounded"
+                >
+                  {!logoPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
                 </Avatar>
-                <Typography variant="h6" sx={{ mt: 2 }}>{selectedStore.name}</Typography>
-                <Rating value={selectedStore.rating || 0} readOnly precision={0.5} />
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <Typography variant="body1" gutterBottom>
-                  <strong>الوصف:</strong> {selectedStore.description || '-'}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>التصنيف:</strong> {selectedStore.category}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>رقم الهاتف:</strong> {selectedStore.phone}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>البريد الإلكتروني:</strong> {selectedStore.email || '-'}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>العنوان:</strong> {selectedStore.address?.city || '-'}, {selectedStore.address?.country || '-'}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>تاريخ التسجيل:</strong> {formatDate(selectedStore.createdAt)}
-                </Typography>
-                <Box display="flex" gap={1} mt={2}>
-                  <Chip label={selectedStore.isVerified ? 'موثق' : 'غير موثق'} color={selectedStore.isVerified ? 'primary' : 'default'} />
-                  <Chip label={selectedStore.isOpen ? 'مفتوح' : 'مغلق'} color={selectedStore.isOpen ? 'success' : 'error'} />
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-      </ResponsiveDialog>
-
-      {/* حوار تأكيد الحذف */}
-      <ResponsiveDialog
-        open={openDeleteDialog}
-        onClose={() => setOpenDeleteDialog(false)}
-        title="تأكيد الحذف"
-        maxWidth="xs"
-        actions={
-          <>
-            <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
-            <Button onClick={confirmDelete} color="error" variant="contained">
-              حذف
+              </Badge>
+            </Box>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              رفع شعار
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleLogoChange}
+              />
             </Button>
-          </>
-        }
-      >
-        <Typography>
-          هل أنت متأكد من حذف المتجر "{selectedStore?.name}"؟
-        </Typography>
-      </ResponsiveDialog>
+            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+              PNG, JPG, JPEG (Max 2MB)
+            </Typography>
+          </Paper>
+        </Grid>
 
-      {/* إشعارات */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
-      </Snackbar>
-    </Box>
+        {/* صورة الغلاف */}
+        <Grid item xs={12} sm={6}>
+          <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" gutterBottom>
+              صورة الغلاف
+            </Typography>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Badge
+                overlap="circular"
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                badgeContent={
+                  coverPreview && !coverFile && !store?.coverImage ? null : (
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveCover}
+                      sx={{
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )
+                }
+              >
+                <Avatar
+                  src={coverPreview}
+                  sx={{ width: 100, height: 100, mx: 'auto', mb: 1 }}
+                  variant="rounded"
+                >
+                  {!coverPreview && <PhotoCameraIcon sx={{ fontSize: 40 }} />}
+                </Avatar>
+              </Badge>
+            </Box>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<CloudUploadIcon />}
+              size="small"
+              sx={{ mt: 1 }}
+            >
+              رفع غلاف
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleCoverChange}
+              />
+            </Button>
+            <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+              PNG, JPG, JPEG (Max 5MB)
+            </Typography>
+          </Paper>
+        </Grid>
+
+        {/* المعلومات الأساسية */}
+        <Grid item xs={12}>
+          <Typography variant="h6" sx={{ mb: 2, mt: 1 }}>
+            المعلومات الأساسية
+          </Typography>
+        </Grid>
+
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            name="name"
+            label="اسم المتجر"
+            value={formik.values.name}
+            onChange={formik.handleChange}
+            error={formik.touched.name && Boolean(formik.errors.name)}
+            helperText={formik.touched.name && formik.errors.name}
+            disabled={loading}
+            required
+          />
+        </Grid>
+
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            name="description"
+            label="الوصف"
+            multiline
+            rows={3}
+            value={formik.values.description}
+            onChange={formik.handleChange}
+            error={formik.touched.description && Boolean(formik.errors.description)}
+            helperText={formik.touched.description && formik.errors.description}
+            disabled={loading}
+            required
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            select
+            name="category"
+            label="التصنيف"
+            value={formik.values.category}
+            onChange={formik.handleChange}
+            error={formik.touched.category && Boolean(formik.errors.category)}
+            helperText={formik.touched.category && formik.errors.category}
+            disabled={loading}
+            required
+          >
+            <MenuItem value="">اختر تصنيف</MenuItem>
+            {categories.map(c => (
+              <MenuItem key={c.value} value={c.value}>
+                {c.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            name="phone"
+            label="رقم الهاتف"
+            value={formik.values.phone}
+            onChange={formik.handleChange}
+            error={formik.touched.phone && Boolean(formik.errors.phone)}
+            helperText={formik.touched.phone && formik.errors.phone}
+            disabled={loading}
+            required
+            InputProps={{
+              startAdornment: <InputAdornment position="start">+</InputAdornment>,
+            }}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            name="email"
+            label="البريد الإلكتروني"
+            type="email"
+            value={formik.values.email}
+            onChange={formik.handleChange}
+            error={formik.touched.email && Boolean(formik.errors.email)}
+            helperText={formik.touched.email && formik.errors.email}
+            disabled={loading}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            name="website"
+            label="الموقع الإلكتروني"
+            value={formik.values.website}
+            onChange={formik.handleChange}
+            error={formik.touched.website && Boolean(formik.errors.website)}
+            helperText={formik.touched.website && formik.errors.website}
+            disabled={loading}
+          />
+        </Grid>
+
+        {/* ✅ حقل مالك المتجر - يظهر فقط عند إنشاء متجر جديد */}
+        {!isEdit && (
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              select
+              name="owner"
+              label="مالك المتجر (التاجر)"
+              value={formik.values.owner}
+              onChange={formik.handleChange}
+              error={formik.touched.owner && Boolean(formik.errors.owner)}
+              helperText={formik.touched.owner && formik.errors.owner}
+              disabled={loading || vendorsLoading}
+              required
+              SelectProps={{
+                renderValue: renderVendorValue,
+              }}
+            >
+              <MenuItem value="">
+                <em>اختر التاجر</em>
+              </MenuItem>
+              {vendorsLoading ? (
+                <MenuItem disabled>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <CircularProgress size={20} />
+                    جاري تحميل التجار...
+                  </Box>
+                </MenuItem>
+              ) : (
+                vendors.map((vendor) => (
+                  <MenuItem key={vendor._id || vendor.id} value={vendor._id || vendor.id}>
+                    <Box display="flex" alignItems="center" gap={2} justifyContent="space-between" width="100%">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar src={vendor.avatar} sx={{ width: 32, height: 32 }}>
+                          {vendor.name?.charAt(0)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {vendor.name}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {vendor.phone} {vendor.email ? `• ${vendor.email}` : ''}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {vendor.isVerified && (
+                        <Chip label="موثق" size="small" color="success" sx={{ height: 20 }} />
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))
+              )}
+            </TextField>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              اختر التاجر الذي سيمتلك هذا المتجر
+            </Typography>
+          </Grid>
+        )}
+
+        <Grid item xs={12}>
+          <FormControlLabel
+            control={
+              <Switch
+                name="isOpen"
+                checked={formik.values.isOpen}
+                onChange={formik.handleChange}
+                disabled={loading}
+              />
+            }
+            label="المتجر مفتوح حالياً"
+          />
+        </Grid>
+
+        {/* التاغات */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="التاغات (كلمات مفتاحية)"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+            placeholder="أدخل تاغ ثم اضغط Enter"
+            disabled={loading}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={handleAddTag} disabled={!tagInput.trim()}>
+                    <AddIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
+            {formik.values.tags.map((tag, index) => (
+              <Chip
+                key={index}
+                label={tag}
+                onDelete={() => handleDeleteTag(tag)}
+                disabled={loading}
+                size="small"
+              />
+            ))}
+          </Stack>
+        </Grid>
+
+        {/* العنوان مع إحداثيات GPS */}
+        <Grid item xs={12}>
+          <Accordion
+            expanded={expandedSections.address}
+            onChange={() => toggleSection('address')}
+            sx={{ mt: 1 }}
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <LocationIcon color="primary" />
+                <Typography>العنوان والإحداثيات</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="address.street"
+                    label="الشارع"
+                    value={formik.values.address.street}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="address.city"
+                    label="المدينة"
+                    value={formik.values.address.city}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="address.state"
+                    label="الولاية/المنطقة"
+                    value={formik.values.address.state}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="address.country"
+                    label="الدولة"
+                    value={formik.values.address.country}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="address.postalCode"
+                    label="الرمز البريدي"
+                    value={formik.values.address.postalCode}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <MapIcon fontSize="small" />
+                      <Typography variant="caption">إحداثيات الموقع (GPS)</Typography>
+                    </Box>
+                  </Divider>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="address.latitude"
+                    label="خط العرض (Latitude)"
+                    type="number"
+                    value={formik.values.address.latitude}
+                    onChange={formik.handleChange}
+                    error={formik.touched.address?.latitude && Boolean(formik.errors.address?.latitude)}
+                    helperText={formik.touched.address?.latitude && formik.errors.address?.latitude}
+                    disabled={loading}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">🌐</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="address.longitude"
+                    label="خط الطول (Longitude)"
+                    type="number"
+                    value={formik.values.address.longitude}
+                    onChange={formik.handleChange}
+                    error={formik.touched.address?.longitude && Boolean(formik.errors.address?.longitude)}
+                    helperText={formik.touched.address?.longitude && formik.errors.address?.longitude}
+                    disabled={loading}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">🌐</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<MapIcon />}
+                    onClick={getCurrentLocation}
+                    disabled={loading}
+                    fullWidth
+                  >
+                    استخدام موقعي الحالي
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    اضغط الزر لتحديد إحداثيات موقع المتجر تلقائياً
+                  </Typography>
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+        </Grid>
+
+        {/* معلومات التوصيل */}
+        <Grid item xs={12}>
+          <Accordion
+            expanded={expandedSections.delivery}
+            onChange={() => toggleSection('delivery')}
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <DeliveryIcon color="primary" />
+                <Typography>معلومات التوصيل</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        name="deliveryInfo.hasDelivery"
+                        checked={formik.values.deliveryInfo.hasDelivery}
+                        onChange={formik.handleChange}
+                        disabled={loading}
+                      />
+                    }
+                    label="يتوفر توصيل"
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="deliveryInfo.deliveryFee"
+                    label="رسوم التوصيل"
+                    type="number"
+                    value={formik.values.deliveryInfo.deliveryFee}
+                    onChange={formik.handleChange}
+                    error={formik.touched.deliveryInfo?.deliveryFee && Boolean(formik.errors.deliveryInfo?.deliveryFee)}
+                    helperText={formik.touched.deliveryInfo?.deliveryFee && formik.errors.deliveryInfo?.deliveryFee}
+                    disabled={loading}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">CFA</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="deliveryInfo.minOrderAmount"
+                    label="الحد الأدنى للطلب"
+                    type="number"
+                    value={formik.values.deliveryInfo.minOrderAmount}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">CFA</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="deliveryInfo.estimatedDeliveryTime"
+                    label="الوقت المقدر للتوصيل (دقائق)"
+                    type="number"
+                    value={formik.values.deliveryInfo.estimatedDeliveryTime}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="deliveryInfo.deliveryRadius"
+                    label="نطاق التوصيل (كم)"
+                    type="number"
+                    value={formik.values.deliveryInfo.deliveryRadius}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="deliveryInfo.freeDeliveryThreshold"
+                    label="الحد الأدنى للتوصيل المجاني"
+                    type="number"
+                    value={formik.values.deliveryInfo.freeDeliveryThreshold}
+                    onChange={formik.handleChange}
+                    disabled={loading}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">CFA</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+        </Grid>
+
+        {/* ساعات العمل */}
+        <Grid item xs={12}>
+          <Accordion
+            expanded={expandedSections.hours}
+            onChange={() => toggleSection('hours')}
+          >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <ScheduleIcon color="primary" />
+                <Typography>ساعات العمل</Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Grid container spacing={2}>
+                {daysOfWeek.map((day) => (
+                  <Grid item xs={12} key={day.value}>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={3}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                name={`openingHours.${day.value}.isOpen`}
+                                checked={formik.values.openingHours[day.value]?.isOpen}
+                                onChange={formik.handleChange}
+                                disabled={loading}
+                              />
+                            }
+                            label={day.label}
+                          />
+                        </Grid>
+                        {formik.values.openingHours[day.value]?.isOpen && (
+                          <>
+                            <Grid item xs={12} sm={4}>
+                              <TextField
+                                fullWidth
+                                name={`openingHours.${day.value}.open`}
+                                label="وقت الفتح"
+                                type="time"
+                                value={formik.values.openingHours[day.value]?.open || '09:00'}
+                                onChange={formik.handleChange}
+                                disabled={loading}
+                                InputLabelProps={{ shrink: true }}
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                              <TextField
+                                fullWidth
+                                name={`openingHours.${day.value}.close`}
+                                label="وقت الإغلاق"
+                                type="time"
+                                value={formik.values.openingHours[day.value]?.close || '22:00'}
+                                onChange={formik.handleChange}
+                                disabled={loading}
+                                InputLabelProps={{ shrink: true }}
+                              />
+                            </Grid>
+                          </>
+                        )}
+                      </Grid>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+        </Grid>
+      </Grid>
+
+      <Box display="flex" justifyContent="flex-end" gap={2} sx={{ mt: 3 }}>
+        <Button onClick={onCancel} disabled={loading}>
+          إلغاء
+        </Button>
+        <Button type="submit" variant="contained" disabled={loading}>
+          {loading ? <CircularProgress size={24} /> : (isEdit ? 'تحديث' : 'إضافة')}
+        </Button>
+      </Box>
+    </form>
   );
 }
 </file>
@@ -12291,7 +12171,9 @@ export default defineConfig({
 </file>
 
 <file path="src/api/endpoints.js">
-// src/api/endpoints.js - النسخة المصححة بالكامل
+// src/api/endpoints.js - مع دوال موحدة للـ IDs
+
+import { getId } from '../utils/helpers';
 
 // ==================== نقاط نهاية المصادقة ====================
 export const authEndpoints = {
@@ -12310,59 +12192,45 @@ export const authEndpoints = {
 
 // ==================== نقاط نهاية الخرائط ====================
 export const mapEndpoints = {
-  // المسارات
   directions: '/map/directions',
   distance: '/map/distance',
   staticMap: '/map/static',
-  
-  // البحث عن العناوين
   geocode: '/map/geocode',
   reverseGeocode: '/map/reverse-geocode',
-  
-  // المتاجر
   stores: '/map/stores',
   storeIsochrone: (storeId) => `/map/store/${storeId}/isochrone`,
   nearestDriver: '/map/store/nearest-driver',
-  
-  // المندوبين
   driverLocation: '/map/driver/location',
   trackDriver: (driverId) => `/map/driver/${driverId}/track`,
   allDriversLocations: '/map/drivers/locations',
   trackAllDrivers: '/map/drivers/track-all',
   nearestDriverAdmin: '/map/nearest-driver',
-  
-  // الطلبات
   orderRoute: (orderId) => `/map/order/${orderId}/route`,
   driverCurrentRoute: '/map/driver/current-route',
 };
 
 // ==================== نقاط نهاية الأدمن ====================
 export const adminEndpoints = {
-  // لوحة التحكم والإحصائيات
   dashboard: '/admin/dashboard',
   stats: '/admin/stats',
   statsUsers: '/admin/stats/users',
   statsOrders: '/admin/stats/orders',
   statsRevenue: '/admin/stats/revenue',
   
-  // إدارة المستخدمين
   users: '/admin/users',
   userDetails: (id) => `/admin/users/${id}`,
   
-  // إدارة التجار
   vendors: '/admin/vendors',
   vendorDetails: (id) => `/admin/vendors/${id}`,
   verifyVendor: (id) => `/admin/vendors/${id}/verify`,
   updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
   
-  // إدارة المتاجر
   stores: '/admin/stores',
   storeDetails: (id) => `/admin/stores/${id}`,
   verifyStore: (id) => `/admin/stores/${id}/verify`,
   toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
   updateStoreCoordinates: '/admin/stores/update-coordinates',
   
-  // إدارة المنتجات
   products: '/admin/products',
   productStats: '/admin/products/stats',
   productDetails: (id) => `/admin/products/${id}`,
@@ -12371,7 +12239,6 @@ export const adminEndpoints = {
   toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
   updateProductInventory: (id) => `/admin/products/${id}/inventory`,
   
-  // إدارة الطلبات
   orders: '/admin/orders',
   orderDetails: (id) => `/admin/orders/${id}`,
   ordersStatsOverview: '/admin/orders/stats/overview',
@@ -12381,7 +12248,6 @@ export const adminEndpoints = {
   reassignDriver: (id) => `/admin/orders/${id}/reassign`,
   forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
   
-  // إدارة المندوبين
   drivers: '/admin/drivers',
   driverDetails: (id) => `/admin/drivers/${id}`,
   driverLocation: (id) => `/admin/drivers/${id}/location`,
@@ -12390,12 +12256,10 @@ export const adminEndpoints = {
   verifyDriver: (id) => `/admin/drivers/${id}/verify`,
   updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
   
-  // إدارة الإشعارات
   sendNotification: '/admin/notifications/send',
   campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
   notificationsAllStats: '/admin/notifications/all/stats',
   
-  // إدارة النظام والكاش
   cacheStats: '/admin/cache/stats',
   clearCache: '/admin/cache/clear',
   clearCacheByPattern: (pattern) => `/admin/cache/clear/${encodeURIComponent(pattern)}`,
@@ -12404,27 +12268,30 @@ export const adminEndpoints = {
   clearAllRateLimits: '/admin/rate-limit/clear-all',
   securityHeaders: '/admin/security/headers',
   
-  // التحليلات
   analyticsUsers: '/admin/analytics/users',
   analyticsOrders: '/admin/analytics/orders',
   analyticsRevenue: '/admin/analytics/revenue',
   
-  // التقارير
   reportsOrders: '/admin/reports/orders',
   reportsUsers: '/admin/reports/users',
   reportsRevenue: '/admin/reports/revenue',
   reportsDrivers: '/admin/reports/drivers',
   reportsStores: '/admin/reports/stores',
   
-  // الإحصائيات المتقدمة
   advancedStatsDaily: '/admin/advanced-stats/daily',
   advancedStatsWeekly: '/admin/advanced-stats/weekly',
   advancedStatsMonthly: '/admin/advanced-stats/monthly',
   advancedStatsCustom: '/admin/advanced-stats/custom',
 };
 
-
 // ==================== دوال مساعدة ====================
+
+/**
+ * بناء URL مع المعاملات
+ * @param {string} endpoint - نقطة النهاية
+ * @param {Object} params - المعاملات
+ * @returns {string} - URL مع المعاملات
+ */
 export const buildUrl = (endpoint, params = {}) => {
   const url = new URL(endpoint, window.location.origin);
   Object.keys(params).forEach(key => {
@@ -12436,12 +12303,13 @@ export const buildUrl = (endpoint, params = {}) => {
 };
 
 /**
- * الحصول على ID بأمان (يدعم _id و id)
- * @param {Object} item - العنصر
- * @returns {string|null} - الـ ID أو null
+ * الحصول على ID من العنصر (يدعم _id و id)
+ * @param {Object|string} item - العنصر أو الـ ID
+ * @returns {string|null}
  */
-export const getId = (item) => {
+export const getItemId = (item) => {
   if (!item) return null;
+  if (typeof item === 'string') return item;
   return item._id || item.id || null;
 };
 
@@ -13135,8 +13003,7 @@ export default StoreMap;
 </file>
 
 <file path="src/pages/Products/index.jsx">
-// src/pages/Products/index.jsx
-// صفحة إدارة المنتجات - نسخة كاملة ومتكاملة
+// src/pages/Products/index.jsx - نسخة كاملة مع _id
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -13185,9 +13052,8 @@ import ProductForm from './components/ProductForm';
 import ProductInventory from './components/ProductInventory';
 import ProductDetails from './components/ProductDetails';
 import { formatCurrency } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
-// ✅ تصنيفات المنتجات (بعد الاستيرادات)
 const CATEGORIES = [
   { value: 'all', label: 'الكل', icon: Restaurant },
   { value: 'main', label: 'وجبات رئيسية', icon: Restaurant },
@@ -13198,7 +13064,6 @@ const CATEGORIES = [
   { value: 'sauce', label: 'صلصات', icon: Restaurant },
 ];
 
-// ✅ خيارات الفلتر
 const AVAILABILITY_OPTIONS = [
   { value: 'all', label: 'الكل' },
   { value: 'available', label: 'متاح' },
@@ -13215,7 +13080,6 @@ export default function Products() {
   const { isMobile, fontSize, spacing } = useResponsive();
   const queryClient = useQueryClient();
   
-  // ✅ حالات الصفحة
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
   const [filters, setFilters] = useState({
@@ -13235,7 +13099,6 @@ export default function Products() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // ✅ جلب المنتجات
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['products', page, pageSize, filters],
     () => productsService.getProducts({
@@ -13261,7 +13124,6 @@ export default function Products() {
     }
   );
 
-  // ✅ جلب المتاجر للفلتر
   const { data: storesData, isLoading: storesLoading } = useQuery(
     'stores-list', 
     () => storesService.getStores({ limit: 100 }),
@@ -13276,9 +13138,8 @@ export default function Products() {
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
-  // ✅ حذف منتج
   const deleteMutation = useMutation(
-    (id) => productsService.deleteProduct(id),
+    (productId) => productsService.deleteProduct(productId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -13291,9 +13152,8 @@ export default function Products() {
     }
   );
 
-  // ✅ تغيير حالة التوفر
   const toggleAvailabilityMutation = useMutation(
-    (id) => productsService.toggleAvailability(id),
+    (productId) => productsService.toggleAvailability(productId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -13305,9 +13165,8 @@ export default function Products() {
     }
   );
 
-  // ✅ تمييز منتج
   const featureProductMutation = useMutation(
-    ({ id, featured }) => productsService.featureProduct(id, { featured }),
+    ({ productId, featured }) => productsService.featureProduct(productId, { featured }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('products');
@@ -13319,7 +13178,6 @@ export default function Products() {
     }
   );
 
-  // ✅ دوال المعالجة
   const handleViewDetails = useCallback((product) => {
     setSelectedProduct(product);
     setOpenDetails(true);
@@ -13341,16 +13199,16 @@ export default function Products() {
   }, []);
 
   const handleToggleAvailability = useCallback((product) => {
-    toggleAvailabilityMutation.mutate(getId(product));
+    toggleAvailabilityMutation.mutate(product._id);
   }, [toggleAvailabilityMutation]);
 
   const handleToggleFeature = useCallback((product) => {
-    featureProductMutation.mutate({ id: getId(product), featured: !product.featured });
+    featureProductMutation.mutate({ productId: product._id, featured: !product.featured });
   }, [featureProductMutation]);
 
   const confirmDelete = useCallback(() => {
     if (selectedProduct) {
-      deleteMutation.mutate(getId(selectedProduct));
+      deleteMutation.mutate(selectedProduct._id);
     }
   }, [selectedProduct, deleteMutation]);
 
@@ -13368,7 +13226,6 @@ export default function Products() {
     setShowAdvancedFilters(false);
   }, []);
 
-  // ✅ إحصائيات سريعة
   const statsCards = useMemo(() => [
     { 
       title: 'إجمالي المنتجات', 
@@ -13400,7 +13257,6 @@ export default function Products() {
     },
   ], [stats, totalCount, products]);
 
-  // ✅ أعمدة الجدول
   const columns = useMemo(() => [
     {
       field: 'image',
@@ -13557,19 +13413,12 @@ export default function Products() {
     },
   ], [storesData, handleViewDetails, handleEdit, handleInventory, handleToggleAvailability, handleToggleFeature, handleDelete]);
 
-  // ✅ تصدير البيانات
-  const handleExport = useCallback(() => {
-    setSnackbar({ open: true, message: 'جاري التصدير...', severity: 'info' });
-  }, []);
-
   return (
     <Box sx={{ p: spacing.page }}>
-      {/* العنوان */}
       <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
         إدارة المنتجات
       </Typography>
 
-      {/* بطاقات الإحصائيات */}
       <ResponsiveStatsCards 
         cards={statsCards} 
         columnsDesktop={4}
@@ -13578,9 +13427,7 @@ export default function Products() {
         spacing={spacing.section}
       />
 
-      {/* المحتوى الرئيسي */}
       <Paper sx={{ p: spacing.card }}>
-        {/* شريط العنوان والأزرار */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
             قائمة المنتجات
@@ -13608,7 +13455,7 @@ export default function Products() {
             <Button 
               variant="outlined" 
               startIcon={<Download />} 
-              onClick={handleExport} 
+              onClick={() => setSnackbar({ open: true, message: 'جاري التصدير...', severity: 'info' })} 
               size="small"
             >
               تصدير
@@ -13627,7 +13474,6 @@ export default function Products() {
           </Box>
         </Box>
 
-        {/* الفلاتر الأساسية */}
         <ResponsiveFilters onReset={resetFilters}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
@@ -13691,7 +13537,6 @@ export default function Products() {
           </Grid>
         </ResponsiveFilters>
 
-        {/* الفلاتر المتقدمة */}
         {(showAdvancedFilters || !isMobile) && (
           <Box mt={2} mb={2}>
             <Grid container spacing={2}>
@@ -13752,7 +13597,6 @@ export default function Products() {
           </Box>
         )}
 
-        {/* الجدول المتجاوب */}
         <ResponsiveTable
           data={products}
           columns={columns}
@@ -13762,14 +13606,13 @@ export default function Products() {
             setOpenDetails(true);
           }}
           emptyMessage="لا توجد منتجات"
-          renderMobileCard={(product) => {
-            const productId = getId(product);
+          renderMobileCard={(product, index) => {
             const storeName = typeof product.store === 'object' ? product.store?.name : (product.storeId || 'غير محدد');
             const isLowStock = product.inventory?.quantity <= (product.inventory?.lowStockThreshold || 5);
             
             return (
               <Paper 
-                key={productId} 
+                key={getReactKey(product, index)} 
                 sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
                 onClick={() => {
                   setSelectedProduct(product);
@@ -13815,7 +13658,6 @@ export default function Products() {
                       <Rating value={product.rating || 0} readOnly size="small" />
                     </Box>
                     
-                    {/* عرض حالة المخزون */}
                     {isLowStock && product.inventory?.quantity > 0 && (
                       <Chip 
                         label={`مخزون منخفض: ${product.inventory.quantity}`} 
@@ -13825,7 +13667,6 @@ export default function Products() {
                       />
                     )}
                     
-                    {/* عرض الخصائص */}
                     {product.attributes && Object.values(product.attributes).some(v => v === true || v > 0) && (
                       <Box display="flex" gap={0.5} mt={1}>
                         {product.attributes.spicyLevel > 0 && (
@@ -13871,7 +13712,6 @@ export default function Products() {
           }}
         />
 
-        {/* ترقيم الصفحات للهواتف */}
         {isMobile && totalCount > pageSize && (
           <Box display="flex" justifyContent="center" mt={2} gap={2}>
             <Button
@@ -13897,9 +13737,6 @@ export default function Products() {
         )}
       </Paper>
 
-      {/* ========== الحوارات ========== */}
-
-      {/* نموذج إضافة/تعديل منتج */}
       <ResponsiveDialog
         open={openForm}
         onClose={() => setOpenForm(false)}
@@ -13918,7 +13755,6 @@ export default function Products() {
         />
       </ResponsiveDialog>
 
-      {/* تفاصيل المنتج */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
@@ -13930,7 +13766,6 @@ export default function Products() {
         {selectedProduct && <ProductDetails product={selectedProduct} />}
       </ResponsiveDialog>
 
-      {/* إدارة المخزون */}
       <ResponsiveDialog
         open={openInventory}
         onClose={() => setOpenInventory(false)}
@@ -13950,7 +13785,6 @@ export default function Products() {
         )}
       </ResponsiveDialog>
 
-      {/* حوار تأكيد الحذف */}
       <ResponsiveDialog
         open={openDeleteDialog}
         onClose={() => setOpenDeleteDialog(false)}
@@ -13970,7 +13804,6 @@ export default function Products() {
         </Typography>
       </ResponsiveDialog>
 
-      {/* إشعارات */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -13984,6 +13817,516 @@ export default function Products() {
         >
           {snackbar.message}
         </Alert>
+      </Snackbar>
+    </Box>
+  );
+}
+</file>
+
+<file path="src/pages/Stores/index.jsx">
+// src/pages/Stores/index.jsx - نسخة كاملة مع _id
+
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  MenuItem,
+  Button,
+  Chip,
+  IconButton,
+  Tooltip,
+  Grid,
+  Card,
+  CardContent,
+  Avatar,
+  Rating,
+  Alert,
+  Snackbar,
+} from '@mui/material';
+import {
+  Edit,
+  Delete,
+  Visibility,
+  Verified,
+  Storefront,
+  Refresh,
+  Add,
+  ToggleOn,
+  ToggleOff,
+} from '@mui/icons-material';
+import { storesService } from '../../api';
+import ResponsiveTable from '../../components/Common/ResponsiveTable';
+import ResponsiveStatsCards from '../../components/Common/ResponsiveStatsCards';
+import ResponsiveFilters from '../../components/Common/ResponsiveFilters';
+import ResponsiveDialog from '../../components/Common/ResponsiveDialog';
+import { useResponsive } from '../../hooks/useResponsive';
+import StoreForm from './components/StoreForm';
+import StoreDetails from './components/StoreDetails';
+import { formatDate } from '../../utils/formatters';
+import { getReactKey, handleError } from '../../utils/helpers';
+
+const categories = [
+  { value: 'all', label: 'الكل' },
+  { value: 'restaurant', label: 'مطعم' },
+  { value: 'cafe', label: 'مقهى' },
+  { value: 'fast_food', label: 'وجبات سريعة' },
+  { value: 'bakery', label: 'مخبز' },
+  { value: 'grocery', label: 'بقالة' },
+  { value: 'pharmacy', label: 'صيدلية' },
+];
+
+export default function Stores() {
+  const { isMobile, fontSize, spacing } = useResponsive();
+  const queryClient = useQueryClient();
+  
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(isMobile ? 10 : 20);
+  const [filters, setFilters] = useState({
+    search: '',
+    category: 'all',
+    status: 'all',
+  });
+  const [selectedStore, setSelectedStore] = useState(null);
+  const [openForm, setOpenForm] = useState(false);
+  const [openDetails, setOpenDetails] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const { data, isLoading, refetch, isFetching } = useQuery(
+    ['stores', page, pageSize, filters],
+    () => storesService.getStores({
+      page: page + 1,
+      limit: pageSize,
+      search: filters.search || undefined,
+      category: filters.category !== 'all' ? filters.category : undefined,
+      isOpen: filters.status !== 'all' ? filters.status === 'open' : undefined,
+    }),
+    {
+      keepPreviousData: true,
+      onError: (error) => {
+        setSnackbar({ 
+          open: true, 
+          message: handleError(error, 'فشل تحميل بيانات المتاجر'), 
+          severity: 'error' 
+        });
+      }
+    }
+  );
+
+  const stores = data?.data || [];
+  const totalCount = data?.pagination?.total || 0;
+  const stats = data?.stats || {};
+
+  const deleteMutation = useMutation(
+    (storeId) => storesService.deleteStore(storeId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stores');
+        setOpenDeleteDialog(false);
+        setSnackbar({ open: true, message: 'تم حذف المتجر بنجاح', severity: 'success' });
+      },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل حذف المتجر'), severity: 'error' });
+      },
+    }
+  );
+
+  const verifyMutation = useMutation(
+    (storeId) => storesService.verifyStore(storeId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stores');
+        setSnackbar({ open: true, message: 'تم توثيق المتجر بنجاح', severity: 'success' });
+      },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل توثيق المتجر'), severity: 'error' });
+      },
+    }
+  );
+
+  const toggleStatusMutation = useMutation(
+    (storeId) => storesService.toggleStoreStatus(storeId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stores');
+        setSnackbar({ open: true, message: 'تم تغيير حالة المتجر', severity: 'success' });
+      },
+      onError: (error) => {
+        setSnackbar({ open: true, message: handleError(error, 'فشل تغيير حالة المتجر'), severity: 'error' });
+      },
+    }
+  );
+
+  const handleViewDetails = useCallback((store) => {
+    setSelectedStore(store);
+    setOpenDetails(true);
+  }, []);
+
+  const handleEdit = useCallback((store) => {
+    setSelectedStore(store);
+    setOpenForm(true);
+  }, []);
+
+  const handleDelete = useCallback((store) => {
+    setSelectedStore(store);
+    setOpenDeleteDialog(true);
+  }, []);
+
+  const handleVerify = useCallback((store) => {
+    verifyMutation.mutate(store._id);
+  }, [verifyMutation]);
+
+  const handleToggleStatus = useCallback((store) => {
+    toggleStatusMutation.mutate(store._id);
+  }, [toggleStatusMutation]);
+
+  const confirmDelete = useCallback(() => {
+    if (selectedStore) {
+      deleteMutation.mutate(selectedStore._id);
+    }
+  }, [selectedStore, deleteMutation]);
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      category: 'all',
+      status: 'all',
+    });
+    setPage(0);
+  }, []);
+
+  const statsCards = useMemo(() => {
+    const activeStores = stores.filter(s => s.isOpen).length;
+    const verifiedStores = stores.filter(s => s.isVerified).length;
+    const avgRating = stores.length > 0 
+      ? (stores.reduce((sum, s) => sum + (s.averageRating || 0), 0) / stores.length).toFixed(1)
+      : '0';
+    
+    return [
+      { title: 'إجمالي المتاجر', value: totalCount, icon: Storefront, color: '#2196f3' },
+      { title: 'متاجر نشطة', value: activeStores, icon: ToggleOn, color: '#4caf50' },
+      { title: 'متاجر موثقة', value: verifiedStores, icon: Verified, color: '#ff9800' },
+      { title: 'متوسط التقييم', value: avgRating, icon: Rating, color: '#9c27b0' },
+    ];
+  }, [stores, totalCount]);
+
+  const columns = useMemo(() => [
+    {
+      field: 'logo',
+      headerName: 'الشعار',
+      width: 80,
+      renderCell: (params) => (
+        <Avatar src={params.value || '/placeholder-store.jpg'} sx={{ width: 40, height: 40, borderRadius: 1 }}>
+          {params.row.name?.charAt(0)}
+        </Avatar>
+      ),
+    },
+    { field: 'name', headerName: 'اسم المتجر', width: 180 },
+    { 
+      field: 'owner', 
+      headerName: 'المالك (التاجر)', 
+      width: 150,
+      renderCell: (params) => {
+        const owner = params.row.owner;
+        if (!owner) return '-';
+        if (typeof owner === 'object') {
+          return (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Avatar src={owner.avatar} sx={{ width: 24, height: 24 }}>
+                {owner.name?.charAt(0)}
+              </Avatar>
+              <Typography variant="body2">{owner.name}</Typography>
+            </Box>
+          );
+        }
+        return owner;
+      }
+    },
+    { field: 'phone', headerName: 'رقم الهاتف', width: 150 },
+    { field: 'category', headerName: 'التصنيف', width: 120 },
+    {
+      field: 'averageRating',
+      headerName: 'التقييم',
+      width: 120,
+      renderCell: (params) => (
+        <Rating value={params.value || 0} readOnly size="small" precision={0.5} />
+      ),
+    },
+    {
+      field: 'isOpen',
+      headerName: 'الحالة',
+      width: 100,
+      renderCell: (params) => (
+        <Chip
+          label={params.value ? 'مفتوح' : 'مغلق'}
+          size="small"
+          color={params.value ? 'success' : 'error'}
+        />
+      ),
+    },
+    {
+      field: 'isVerified',
+      headerName: 'موثق',
+      width: 80,
+      renderCell: (params) => (
+        params.value ? <Verified color="primary" /> : <Chip label="غير موثق" size="small" variant="outlined" />
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'الإجراءات',
+      width: 250,
+      hideOnDesktop: false,
+      renderCell: (params) => {
+        const store = params.row;
+        return (
+          <Box display="flex" gap={0.5}>
+            <Tooltip title="عرض التفاصيل">
+              <IconButton size="small" onClick={() => handleViewDetails(store)}>
+                <Visibility fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="تعديل">
+              <IconButton size="small" onClick={() => handleEdit(store)}>
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {!store.isVerified && (
+              <Tooltip title="توثيق">
+                <IconButton size="small" onClick={() => handleVerify(store)} color="primary">
+                  <Verified fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={store.isOpen ? 'إغلاق' : 'فتح'}>
+              <IconButton size="small" onClick={() => handleToggleStatus(store)}>
+                {store.isOpen ? <ToggleOff fontSize="small" color="error" /> : <ToggleOn fontSize="small" color="success" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="حذف">
+              <IconButton size="small" onClick={() => handleDelete(store)} color="error">
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
+    },
+  ], [handleViewDetails, handleEdit, handleVerify, handleToggleStatus, handleDelete]);
+
+  return (
+    <Box sx={{ p: spacing.page }}>
+      <Typography variant="h5" fontWeight="bold" sx={{ mb: spacing.section, fontSize: fontSize.h2 }}>
+        إدارة المتاجر
+      </Typography>
+
+      <ResponsiveStatsCards 
+        cards={statsCards} 
+        columnsDesktop={4}
+        columnsTablet={2}
+        columnsMobile={2}
+        spacing={spacing.section}
+      />
+
+      <Paper sx={{ p: spacing.card }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: fontSize.h3 }}>
+            قائمة المتاجر
+          </Typography>
+          <Box display="flex" gap={1} flexWrap="wrap">
+            <Button variant="outlined" startIcon={<Refresh />} onClick={() => refetch()} size="small" disabled={isFetching}>
+              تحديث
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => {
+                setSelectedStore(null);
+                setOpenForm(true);
+              }}
+              size="small"
+            >
+              {isMobile ? 'جديد' : 'متجر جديد'}
+            </Button>
+          </Box>
+        </Box>
+
+        <ResponsiveFilters onReset={resetFilters}>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              label="بحث"
+              size="small"
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              placeholder="اسم المتجر، البريد، رقم الهاتف..."
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              select
+              label="التصنيف"
+              size="small"
+              value={filters.category}
+              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+            >
+              {categories.map((cat) => (
+                <MenuItem key={cat.value} value={cat.value}>
+                  {cat.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              select
+              label="الحالة"
+              size="small"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            >
+              <MenuItem value="all">الكل</MenuItem>
+              <MenuItem value="open">مفتوح</MenuItem>
+              <MenuItem value="closed">مغلق</MenuItem>
+            </TextField>
+          </Grid>
+        </ResponsiveFilters>
+
+        <ResponsiveTable
+          data={stores}
+          columns={columns}
+          loading={isLoading}
+          onRowClick={(store) => {
+            setSelectedStore(store);
+            setOpenDetails(true);
+          }}
+          emptyMessage="لا توجد متاجر"
+          renderMobileCard={(store, index) => (
+            <Paper 
+              key={getReactKey(store, index)} 
+              sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
+              onClick={() => {
+                setSelectedStore(store);
+                setOpenDetails(true);
+              }}
+            >
+              <Box display="flex" gap={2}>
+                <Avatar src={store.logo || '/placeholder-store.jpg'} sx={{ width: 50, height: 50, borderRadius: 1 }}>
+                  {store.name?.charAt(0)}
+                </Avatar>
+                <Box flex={1}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {store.name}
+                    </Typography>
+                    <Chip
+                      label={store.isOpen ? 'مفتوح' : 'مغلق'}
+                      size="small"
+                      color={store.isOpen ? 'success' : 'error'}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {store.phone}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    المالك: {typeof store.owner === 'object' ? store.owner?.name : (store.owner || 'غير محدد')}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" display="block">
+                    {store.category}
+                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+                    <Rating value={store.averageRating || 0} readOnly size="small" />
+                    {store.isVerified && <Verified fontSize="small" color="primary" />}
+                  </Box>
+                </Box>
+              </Box>
+              <Box display="flex" justifyContent="flex-end" gap={1} mt={1}>
+                {!store.isVerified && (
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      handleVerify(store);
+                    }}
+                    color="primary"
+                  >
+                    <Verified fontSize="small" />
+                  </IconButton>
+                )}
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    handleToggleStatus(store);
+                  }}
+                >
+                  {store.isOpen ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
+                </IconButton>
+              </Box>
+            </Paper>
+          )}
+        />
+      </Paper>
+
+      <ResponsiveDialog
+        open={openForm}
+        onClose={() => setOpenForm(false)}
+        title={selectedStore ? 'تعديل متجر' : 'إضافة متجر جديد'}
+        maxWidth="md"
+      >
+        <StoreForm
+          store={selectedStore}
+          onSuccess={() => {
+            setOpenForm(false);
+            queryClient.invalidateQueries('stores');
+            setSnackbar({ open: true, message: selectedStore ? 'تم تحديث المتجر' : 'تم إضافة المتجر', severity: 'success' });
+          }}
+          onCancel={() => setOpenForm(false)}
+        />
+      </ResponsiveDialog>
+
+      <ResponsiveDialog
+        open={openDetails}
+        onClose={() => setOpenDetails(false)}
+        title="تفاصيل المتجر"
+        maxWidth="md"
+        fullScreenOnMobile={true}
+        actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
+      >
+        <StoreDetails store={selectedStore} />
+      </ResponsiveDialog>
+
+      <ResponsiveDialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        title="تأكيد الحذف"
+        maxWidth="xs"
+        actions={
+          <>
+            <Button onClick={() => setOpenDeleteDialog(false)}>إلغاء</Button>
+            <Button onClick={confirmDelete} color="error" variant="contained">
+              حذف
+            </Button>
+          </>
+        }
+      >
+        <Typography>
+          هل أنت متأكد من حذف المتجر "{selectedStore?.name}"؟
+        </Typography>
+      </ResponsiveDialog>
+
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );
@@ -15022,7 +15365,7 @@ export default function MapPage() {
 </file>
 
 <file path="src/pages/Users/index.jsx">
-// src/pages/Users/index.jsx - نسخة مصححة بالكامل
+// src/pages/Users/index.jsx - نسخة كاملة مع _id
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -15131,7 +15474,6 @@ export default function Users() {
 
   const debouncedSearch = useDebounce(search, 500);
 
-  // ✅ استخدام useCallback للدوال
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['users', page, rowsPerPage, debouncedSearch, roleFilter, statusFilter],
     () => usersService.getUsers({
@@ -15151,7 +15493,7 @@ export default function Users() {
   const stats = data?.stats || {};
 
   const deleteMutation = useMutation(
-    (id) => usersService.deleteUser(id),
+    (userId) => usersService.deleteUser(userId),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -15165,7 +15507,7 @@ export default function Users() {
   );
 
   const toggleStatusMutation = useMutation(
-    ({ id, isActive }) => usersService.updateUser(id, { isActive: !isActive }),
+    ({ userId, isActive }) => usersService.updateUser(userId, { isActive: !isActive }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -15177,7 +15519,6 @@ export default function Users() {
     }
   );
 
-  // ✅ استخدام useCallback للدوال
   const handleViewDetails = useCallback((user) => {
     setSelectedUser(user);
     setOpenDetails(true);
@@ -15194,12 +15535,12 @@ export default function Users() {
   }, []);
 
   const handleToggleStatus = useCallback((user) => {
-    toggleStatusMutation.mutate({ id: getId(user), isActive: user.isActive });
+    toggleStatusMutation.mutate({ userId: user._id, isActive: user.isActive });
   }, [toggleStatusMutation]);
 
   const confirmDelete = useCallback(() => {
     if (selectedUser) {
-      deleteMutation.mutate(getId(selectedUser));
+      deleteMutation.mutate(selectedUser._id);
     }
   }, [selectedUser, deleteMutation]);
 
@@ -15219,7 +15560,6 @@ export default function Users() {
     setShowFilters(false);
   }, []);
 
-  // ✅ استخدام useMemo للحصول على الإحصائيات
   const statsCards = useMemo(() => [
     { label: 'إجمالي المستخدمين', value: stats?.total || 0, color: '#1976d2', icon: People },
     { label: 'مستخدمين نشطين', value: stats?.active || 0, color: '#4caf50', icon: CheckCircle },
@@ -15227,8 +15567,7 @@ export default function Users() {
     { label: 'الأدوار المتاحة', value: stats?.byRole?.length || 0, color: '#9c27b0', icon: Person },
   ], [stats]);
 
-  // ✅ عرض الجدول للشاشات المتوسطة والكبيرة
-  const renderDesktopTable = useCallback(() => {
+  const renderDesktopTable = () => {
     if (isLoading) {
       return (
         <Box display="flex" justifyContent="center" py={4}>
@@ -15253,11 +15592,10 @@ export default function Users() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => {
+              {users.map((user, index) => {
                 const RoleIcon = roleConfig[user.role]?.icon || Person;
-                const userId = getId(user);
                 return (
-                  <TableRow key={userId} hover>
+                  <TableRow key={getReactKey(user, index)} hover>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
                         <Avatar src={user.image} sx={{ width: 32, height: 32 }}>
@@ -15334,10 +15672,9 @@ export default function Users() {
         />
       </>
     );
-  }, [isLoading, isTablet, users, totalCount, rowsPerPage, page, handleViewDetails, handleEdit, handleToggleStatus, handleDelete, handleChangePage, handleChangeRowsPerPage]);
+  };
 
-  // ✅ عرض البطاقات للهواتف
-  const renderMobileCards = useCallback(() => {
+  const renderMobileCards = () => {
     if (isLoading) {
       return (
         <Box textAlign="center" py={4}>
@@ -15356,11 +15693,10 @@ export default function Users() {
 
     return (
       <List sx={{ width: '100%', p: 0 }}>
-        {users.map((user) => {
+        {users.map((user, index) => {
           const RoleIcon = roleConfig[user.role]?.icon || Person;
-          const userId = getId(user);
           return (
-            <Card key={userId} sx={{ mb: 2, p: 1.5 }}>
+            <Card key={getReactKey(user, index)} sx={{ mb: 2, p: 1.5 }}>
               <Box display="flex" alignItems="center" gap={2}>
                 <Avatar src={user.image} sx={{ width: 48, height: 48 }}>
                   {user.name?.charAt(0)}
@@ -15464,7 +15800,7 @@ export default function Users() {
         )}
       </List>
     );
-  }, [isLoading, users, totalCount, rowsPerPage, page, handleViewDetails, handleEdit, handleToggleStatus, handleDelete]);
+  };
 
   return (
     <Box 
@@ -15475,7 +15811,6 @@ export default function Users() {
         overflowX: 'hidden',
       }}
     >
-      {/* بطاقات الإحصائيات */}
       <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
         {statsCards.map((stat, index) => (
           <Grid item xs={6} sm={6} md={3} key={index}>
@@ -15499,7 +15834,6 @@ export default function Users() {
       </Grid>
 
       <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
-        {/* شريط العنوان والأزرار */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             إدارة المستخدمين
@@ -15538,7 +15872,6 @@ export default function Users() {
           </Box>
         </Box>
 
-        {/* فلاتر البحث */}
         <Collapse in={!isMobile || showFilters}>
           <Box mb={2}>
             <Grid container spacing={1.5}>
@@ -15605,11 +15938,9 @@ export default function Users() {
           </Box>
         </Collapse>
 
-        {/* عرض حسب نوع الجهاز */}
         {isMobile ? renderMobileCards() : renderDesktopTable()}
       </Paper>
 
-      {/* نموذج إضافة/تعديل مستخدم */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
         <DialogTitle>{selectedUser ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}</DialogTitle>
         <DialogContent>
@@ -15625,7 +15956,6 @@ export default function Users() {
         </DialogContent>
       </Dialog>
 
-      {/* تفاصيل المستخدم */}
       <Dialog open={openDetails} onClose={() => setOpenDetails(false)} maxWidth="md" fullWidth>
         <DialogTitle>تفاصيل المستخدم</DialogTitle>
         <DialogContent dividers>
@@ -15636,7 +15966,6 @@ export default function Users() {
         </DialogActions>
       </Dialog>
 
-      {/* حوار تأكيد الحذف */}
       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
         <DialogTitle>تأكيد الحذف</DialogTitle>
         <DialogContent>
@@ -15650,7 +15979,6 @@ export default function Users() {
         </DialogActions>
       </Dialog>
 
-      {/* إشعارات */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={6000} 

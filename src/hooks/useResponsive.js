@@ -1,3 +1,5 @@
+// src/hooks/useResponsive.js - هوك للتحقق من حجم الشاشة
+
 import { useTheme, useMediaQuery } from '@mui/material';
 
 /**

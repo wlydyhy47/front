@@ -1,3 +1,5 @@
+// src/hooks/usePagination.js
+
 import { useState, useMemo } from 'react';
 
 export function usePagination(totalItems, initialPageSize = 20) {

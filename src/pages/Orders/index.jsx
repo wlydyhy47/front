@@ -1,4 +1,4 @@
-// src/pages/Orders/index.jsx - نسخة مصححة بالكامل
+// src/pages/Orders/index.jsx - نسخة كاملة مع _id
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -22,7 +22,6 @@ import {
   Cancel,
   Refresh,
   CheckCircle,
-  Block,
 } from '@mui/icons-material';
 import { ordersService } from '../../api';
 import ResponsiveTable from '../../components/Common/ResponsiveTable';
@@ -33,7 +32,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import OrderDetails from './components/OrderDetails';
 import AssignDriverModal from './components/AssignDriverModal';
 import { formatDate, formatCurrency } from '../../utils/formatters';
-import { getId, handleError } from '../../utils/helpers';
+import { getReactKey, handleError } from '../../utils/helpers';
 
 const statusColors = {
   pending: { label: 'قيد الانتظار', color: '#ff9800', bg: '#ff980020' },
@@ -73,7 +72,6 @@ export default function Orders() {
   const [cancelReason, setCancelReason] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  // جلب الطلبات
   const { data, isLoading, refetch, isFetching } = useQuery(
     ['orders', page, pageSize, filters],
     () => ordersService.getOrders({
@@ -100,9 +98,8 @@ export default function Orders() {
   const totalCount = data?.pagination?.total || 0;
   const stats = data?.stats || {};
 
-  // إلغاء طلب
   const cancelMutation = useMutation(
-    ({ id, reason }) => ordersService.forceCancelOrder(id, { reason }),
+    ({ orderId, reason }) => ordersService.forceCancelOrder(orderId, { reason }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('orders');
@@ -120,7 +117,6 @@ export default function Orders() {
     }
   );
 
-  // ✅ دوال المعالجة
   const handleViewDetails = useCallback((order) => {
     setSelectedOrder(order);
     setOpenDetails(true);
@@ -138,7 +134,7 @@ export default function Orders() {
 
   const confirmCancel = useCallback(() => {
     if (selectedOrder && cancelReason.trim()) {
-      cancelMutation.mutate({ id: getId(selectedOrder), reason: cancelReason });
+      cancelMutation.mutate({ orderId: selectedOrder._id, reason: cancelReason });
     }
   }, [selectedOrder, cancelReason, cancelMutation]);
 
@@ -152,7 +148,6 @@ export default function Orders() {
     setPage(0);
   }, []);
 
-  // ✅ إحصائيات سريعة
   const statsCards = useMemo(() => [
     { title: 'إجمالي الطلبات', value: stats.totalOrders?.toLocaleString() || 0, icon: CheckCircle, color: '#2196f3' },
     { title: 'طلبات مكتملة', value: stats.completedOrders?.toLocaleString() || 0, icon: CheckCircle, color: '#4caf50' },
@@ -160,9 +155,14 @@ export default function Orders() {
     { title: 'إجمالي الإيرادات', value: formatCurrency(stats.totalRevenue || 0), icon: Refresh, color: '#ff9800' },
   ], [stats]);
 
-  // ✅ أعمدة الجدول
   const columns = useMemo(() => [
-    { field: '_id', headerName: 'رقم الطلب', width: 220, hideOnMobile: true },
+    { 
+      field: '_id', 
+      headerName: 'رقم الطلب', 
+      width: 220, 
+      hideOnMobile: true,
+      renderCell: (params) => `#${params.row._id?.slice(-6)}`
+    },
     { 
       field: 'user', 
       headerName: 'العميل', 
@@ -340,13 +340,12 @@ export default function Orders() {
             setOpenDetails(true);
           }}
           emptyMessage="لا توجد طلبات"
-          renderMobileCard={(order) => {
+          renderMobileCard={(order, index) => {
             const status = statusColors[order.status] || { label: order.status, color: '#999', bg: '#99920' };
-            const orderId = getId(order);
             const canModify = order.status !== 'delivered' && order.status !== 'cancelled';
             return (
               <Paper 
-                key={orderId} 
+                key={getReactKey(order, index)} 
                 sx={{ p: 1.5, cursor: 'pointer', mb: 1.5 }} 
                 onClick={() => {
                   setSelectedOrder(order);
@@ -355,7 +354,7 @@ export default function Orders() {
               >
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                   <Typography variant="subtitle2" fontWeight="bold">
-                    #{orderId?.slice(-6) || order._id?.slice(-6)}
+                    #{order._id?.slice(-6)}
                   </Typography>
                   <Chip
                     label={status.label}
@@ -406,22 +405,20 @@ export default function Orders() {
         />
       </Paper>
 
-      {/* تفاصيل الطلب */}
       <ResponsiveDialog
         open={openDetails}
         onClose={() => setOpenDetails(false)}
-        title={`تفاصيل الطلب #${getId(selectedOrder)?.slice(-6) || ''}`}
+        title={`تفاصيل الطلب #${selectedOrder?._id?.slice(-6) || ''}`}
         maxWidth="md"
         actions={<Button onClick={() => setOpenDetails(false)}>إغلاق</Button>}
       >
         {selectedOrder && <OrderDetails order={selectedOrder} />}
       </ResponsiveDialog>
 
-      {/* تعيين مندوب */}
       <AssignDriverModal
         open={openAssignDriver}
         onClose={() => setOpenAssignDriver(false)}
-        orderId={getId(selectedOrder)}
+        orderId={selectedOrder?._id}
         onSuccess={() => {
           setOpenAssignDriver(false);
           queryClient.invalidateQueries('orders');
@@ -429,7 +426,6 @@ export default function Orders() {
         }}
       />
 
-      {/* إلغاء الطلب */}
       <ResponsiveDialog
         open={openCancelDialog}
         onClose={() => setOpenCancelDialog(false)}
@@ -461,7 +457,6 @@ export default function Orders() {
         />
       </ResponsiveDialog>
 
-      {/* إشعارات */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={6000} 

@@ -1,4 +1,6 @@
-// src/api/endpoints.js - النسخة المصححة بالكامل
+// src/api/endpoints.js - مع دوال موحدة للـ IDs
+
+import { getId } from '../utils/helpers';
 
 // ==================== نقاط نهاية المصادقة ====================
 export const authEndpoints = {
@@ -17,59 +19,45 @@ export const authEndpoints = {
 
 // ==================== نقاط نهاية الخرائط ====================
 export const mapEndpoints = {
-  // المسارات
   directions: '/map/directions',
   distance: '/map/distance',
   staticMap: '/map/static',
-  
-  // البحث عن العناوين
   geocode: '/map/geocode',
   reverseGeocode: '/map/reverse-geocode',
-  
-  // المتاجر
   stores: '/map/stores',
   storeIsochrone: (storeId) => `/map/store/${storeId}/isochrone`,
   nearestDriver: '/map/store/nearest-driver',
-  
-  // المندوبين
   driverLocation: '/map/driver/location',
   trackDriver: (driverId) => `/map/driver/${driverId}/track`,
   allDriversLocations: '/map/drivers/locations',
   trackAllDrivers: '/map/drivers/track-all',
   nearestDriverAdmin: '/map/nearest-driver',
-  
-  // الطلبات
   orderRoute: (orderId) => `/map/order/${orderId}/route`,
   driverCurrentRoute: '/map/driver/current-route',
 };
 
 // ==================== نقاط نهاية الأدمن ====================
 export const adminEndpoints = {
-  // لوحة التحكم والإحصائيات
   dashboard: '/admin/dashboard',
   stats: '/admin/stats',
   statsUsers: '/admin/stats/users',
   statsOrders: '/admin/stats/orders',
   statsRevenue: '/admin/stats/revenue',
   
-  // إدارة المستخدمين
   users: '/admin/users',
   userDetails: (id) => `/admin/users/${id}`,
   
-  // إدارة التجار
   vendors: '/admin/vendors',
   vendorDetails: (id) => `/admin/vendors/${id}`,
   verifyVendor: (id) => `/admin/vendors/${id}/verify`,
   updateVendorStatus: (id) => `/admin/vendors/${id}/status`,
   
-  // إدارة المتاجر
   stores: '/admin/stores',
   storeDetails: (id) => `/admin/stores/${id}`,
   verifyStore: (id) => `/admin/stores/${id}/verify`,
   toggleStoreStatus: (id) => `/admin/stores/${id}/toggle-status`,
   updateStoreCoordinates: '/admin/stores/update-coordinates',
   
-  // إدارة المنتجات
   products: '/admin/products',
   productStats: '/admin/products/stats',
   productDetails: (id) => `/admin/products/${id}`,
@@ -78,7 +66,6 @@ export const adminEndpoints = {
   toggleProductAvailability: (id) => `/admin/products/${id}/toggle-availability`,
   updateProductInventory: (id) => `/admin/products/${id}/inventory`,
   
-  // إدارة الطلبات
   orders: '/admin/orders',
   orderDetails: (id) => `/admin/orders/${id}`,
   ordersStatsOverview: '/admin/orders/stats/overview',
@@ -88,7 +75,6 @@ export const adminEndpoints = {
   reassignDriver: (id) => `/admin/orders/${id}/reassign`,
   forceCancelOrder: (id) => `/admin/orders/${id}/force-cancel`,
   
-  // إدارة المندوبين
   drivers: '/admin/drivers',
   driverDetails: (id) => `/admin/drivers/${id}`,
   driverLocation: (id) => `/admin/drivers/${id}/location`,
@@ -97,12 +83,10 @@ export const adminEndpoints = {
   verifyDriver: (id) => `/admin/drivers/${id}/verify`,
   updateDriverStatus: (id) => `/admin/drivers/${id}/status`,
   
-  // إدارة الإشعارات
   sendNotification: '/admin/notifications/send',
   campaignStats: (campaignId) => `/admin/notifications/campaign/${campaignId}/stats`,
   notificationsAllStats: '/admin/notifications/all/stats',
   
-  // إدارة النظام والكاش
   cacheStats: '/admin/cache/stats',
   clearCache: '/admin/cache/clear',
   clearCacheByPattern: (pattern) => `/admin/cache/clear/${encodeURIComponent(pattern)}`,
@@ -111,27 +95,30 @@ export const adminEndpoints = {
   clearAllRateLimits: '/admin/rate-limit/clear-all',
   securityHeaders: '/admin/security/headers',
   
-  // التحليلات
   analyticsUsers: '/admin/analytics/users',
   analyticsOrders: '/admin/analytics/orders',
   analyticsRevenue: '/admin/analytics/revenue',
   
-  // التقارير
   reportsOrders: '/admin/reports/orders',
   reportsUsers: '/admin/reports/users',
   reportsRevenue: '/admin/reports/revenue',
   reportsDrivers: '/admin/reports/drivers',
   reportsStores: '/admin/reports/stores',
   
-  // الإحصائيات المتقدمة
   advancedStatsDaily: '/admin/advanced-stats/daily',
   advancedStatsWeekly: '/admin/advanced-stats/weekly',
   advancedStatsMonthly: '/admin/advanced-stats/monthly',
   advancedStatsCustom: '/admin/advanced-stats/custom',
 };
 
-
 // ==================== دوال مساعدة ====================
+
+/**
+ * بناء URL مع المعاملات
+ * @param {string} endpoint - نقطة النهاية
+ * @param {Object} params - المعاملات
+ * @returns {string} - URL مع المعاملات
+ */
 export const buildUrl = (endpoint, params = {}) => {
   const url = new URL(endpoint, window.location.origin);
   Object.keys(params).forEach(key => {
@@ -143,12 +130,13 @@ export const buildUrl = (endpoint, params = {}) => {
 };
 
 /**
- * الحصول على ID بأمان (يدعم _id و id)
- * @param {Object} item - العنصر
- * @returns {string|null} - الـ ID أو null
+ * الحصول على ID من العنصر (يدعم _id و id)
+ * @param {Object|string} item - العنصر أو الـ ID
+ * @returns {string|null}
  */
-export const getId = (item) => {
+export const getItemId = (item) => {
   if (!item) return null;
+  if (typeof item === 'string') return item;
   return item._id || item.id || null;
 };
 

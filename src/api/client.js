@@ -1,7 +1,8 @@
-// src/api/client.js - النسخة المصححة بالكامل
+// src/api/client.js - مع interceptor لتوحيد البيانات
 
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { normalizeData } from '../utils/helpers';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
@@ -52,18 +53,51 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor - مع توحيد البيانات
 apiClient.interceptors.response.use(
   (response) => {
+    // توحيد البيانات في جميع الاستجابات
+    if (response.data) {
+      // توحيد البيانات الرئيسية
+      response.data = normalizeData(response.data);
+      
+      // إذا كان هناك data.data (حسب هيكل الـ API)
+      if (response.data.data) {
+        response.data.data = normalizeData(response.data.data);
+      }
+      
+      // إذا كان هناك data.results (لـ pagination)
+      if (response.data.results) {
+        response.data.results = normalizeData(response.data.results);
+      }
+      
+      // إذا كان هناك data.orders أو data.users أو data.stores
+      if (response.data.orders) {
+        response.data.orders = normalizeData(response.data.orders);
+      }
+      if (response.data.users) {
+        response.data.users = normalizeData(response.data.users);
+      }
+      if (response.data.stores) {
+        response.data.stores = normalizeData(response.data.stores);
+      }
+      if (response.data.products) {
+        response.data.products = normalizeData(response.data.products);
+      }
+      if (response.data.drivers) {
+        response.data.drivers = normalizeData(response.data.drivers);
+      }
+      if (response.data.vendors) {
+        response.data.vendors = normalizeData(response.data.vendors);
+      }
+    }
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
     
-    // ✅ تصحيح: استخدام /auth/refresh (بدون -token)
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // إذا كان هناك عملية refresh قيد التنفيذ، انتظر
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -84,7 +118,6 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token');
         }
         
-        // ✅ المسار الصحيح حسب Backend
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken,
         });
@@ -96,7 +129,6 @@ apiClient.interceptors.response.use(
           localStorage.setItem('refreshToken', newRefreshToken);
         }
         
-        // معالجة الطلبات المعلقة
         processQueue(null, accessToken);
         
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -118,7 +150,6 @@ apiClient.interceptors.response.use(
     
     const errorMessage = error.response?.data?.message || error.message || 'حدث خطأ غير متوقع';
     
-    // معالجة الأخطاء حسب نوعها
     if (error.response?.status === 403) {
       toast.error('ليس لديك صلاحية للوصول إلى هذا المورد');
     } else if (error.response?.status === 404) {
@@ -128,7 +159,6 @@ apiClient.interceptors.response.use(
     } else if (error.response?.status >= 500) {
       toast.error('خطأ في الخادم، الرجاء المحاولة لاحقاً');
     } else if (error.response?.status !== 401) {
-      // لا نعرض رسالة لـ 401 لأننا نتعامل معها بشكل منفصل
       toast.error(errorMessage);
     }
     

@@ -47,7 +47,7 @@ const validationSchema = Yup.object({
     .max(500, 'الوصف طويل جداً')
     .required('الوصف مطلوب'),
   category: Yup.string().required('التصنيف مطلوب'),
-  owner: Yup.string().required('مالك المتجر مطلوب'),
+  vendorId: Yup.string().required('التاجر مطلوب'),  
   phone: Yup.string()
     .required('رقم الهاتف مطلوب')
     .matches(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{4,6}$/, 'رقم الهاتف غير صالح'),
@@ -130,7 +130,6 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
         setVendorsLoading(true);
         try {
           const response = await vendorsService.getVendors({ limit: 100 });
-          // التعامل مع هيكل الاستجابة المختلفة
           const vendorsList = response.data?.vendors || response.data || [];
           setVendors(vendorsList);
           console.log('✅ Vendors loaded:', vendorsList.length);
@@ -222,7 +221,7 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
       name: store?.name || '',
       description: store?.description || '',
       category: store?.category || '',
-      owner: store?.owner || store?.ownerId || '',
+      vendorId: store?.vendor?.id || store?.vendorId || store?.vendor?._id || '',  
       phone: store?.phone || '',
       email: store?.email || '',
       website: store?.website || '',
@@ -269,10 +268,10 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
         formData.append('category', values.category);
         formData.append('phone', values.phone);
         
-        // ✅ إضافة مالك المتجر (التاجر)
-        if (values.owner) {
-          formData.append('owner', values.owner);
-          console.log('📦 Owner ID:', values.owner);
+        
+        if (values.vendorId) {
+          console.log('📦 Selected vendor ID:', values.vendorId);
+          formData.append('vendor', values.vendorId);  // استخدام vendor كما يتوقع الـ Backend
         }
         
         if (values.email) {
@@ -317,12 +316,12 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
         }
 
         // تسجيل جميع البيانات للـ debugging
-        console.log('📦 FormData entries:');
+        console.log('📦 Final FormData entries:');
         for (let pair of formData.entries()) {
           if (pair[1] instanceof File) {
-            console.log(pair[0], '=', pair[1].name, '(File)');
+            console.log(`   ${pair[0]} = [File: ${pair[1].name}]`);
           } else {
-            console.log(pair[0], '=', pair[1]);
+            console.log(`   ${pair[0]} = ${pair[1]}`);
           }
         }
 
@@ -344,7 +343,7 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
     },
   });
 
-  // دالة عرض التاجر في الـ Select
+  // ✅ دالة عرض التاجر في الـ Select
   const renderVendorValue = (selected) => {
     const vendor = vendors.find(v => (v._id || v.id) === selected);
     if (!vendor) return 'اختر التاجر';
@@ -592,18 +591,17 @@ export default function StoreForm({ store, onSuccess, onCancel }) {
           />
         </Grid>
 
-        {/* ✅ حقل مالك المتجر - يظهر فقط عند إنشاء متجر جديد */}
         {!isEdit && (
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
               select
-              name="owner"
-              label="مالك المتجر (التاجر)"
-              value={formik.values.owner}
+              name="vendorId"
+              label="التاجر (مالك المتجر)"
+              value={formik.values.vendorId}
               onChange={formik.handleChange}
-              error={formik.touched.owner && Boolean(formik.errors.owner)}
-              helperText={formik.touched.owner && formik.errors.owner}
+              error={formik.touched.vendorId && Boolean(formik.errors.vendorId)}
+              helperText={formik.touched.vendorId && formik.errors.vendorId}
               disabled={loading || vendorsLoading}
               required
               SelectProps={{

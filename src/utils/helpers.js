@@ -1,81 +1,76 @@
-// src/utils/helpers.js - دوال مساعدة
+// src/utils/helpers.js - دوال مساعدة موحدة
 
 /**
- * الحصول على ID بأمان (يدعم _id و id)
- * @param {Object} item - العنصر
- * @returns {string|null} - الـ ID أو null
+ * الحصول على ID بأمان - موحد لاستخدام _id
+ * @param {Object} item - العنصر (مستخدم، متجر، منتج، طلب)
+ * @returns {string|null}
  */
 export const getId = (item) => {
   if (!item) return null;
+  // إعطاء أولوية لـ _id كما في الـ Backend
   return item._id || item.id || null;
 };
 
 /**
- * توحيد IDs في مصفوفة
- * @param {Array} items - المصفوفة
- * @returns {Array} - مصفوفة مع توحيد الـ IDs
+ * توحيد البيانات المستلمة من الـ API
+ * تضمن أن كل كائن له _id
+ * @param {Object|Array} data - البيانات المستلمة
+ * @returns {Object|Array} - البيانات بعد التوحيد
  */
-export const normalizeItems = (items) => {
-  if (!Array.isArray(items)) return [];
-  return items.map(item => ({
-    ...item,
-    _id: item._id || item.id,
-  }));
+export const normalizeData = (data) => {
+  if (!data) return data;
+  
+  // إذا كانت مصفوفة
+  if (Array.isArray(data)) {
+    return data.map(item => normalizeItem(item));
+  }
+  
+  // إذا كان كائن
+  if (typeof data === 'object') {
+    return normalizeItem(data);
+  }
+  
+  return data;
 };
 
 /**
- * إنشاء key فريد للـ React
+ * توحيد عنصر واحد
+ * @param {Object} item - العنصر
+ * @returns {Object} - العنصر بعد التوحيد
+ */
+const normalizeItem = (item) => {
+  if (!item || typeof item !== 'object') return item;
+  
+  const normalized = { ...item };
+  
+  // التأكد من وجود _id
+  if (item._id) {
+    normalized._id = item._id;
+  } else if (item.id) {
+    normalized._id = item.id;
+    // احتفظ بـ id للتوافق مع الإصدارات القديمة
+    normalized.id = item.id;
+  }
+  
+  // معالجة الكائنات المتداخلة
+  Object.keys(normalized).forEach(key => {
+    if (normalized[key] && typeof normalized[key] === 'object') {
+      normalized[key] = normalizeData(normalized[key]);
+    }
+  });
+  
+  return normalized;
+};
+
+/**
+ * إنشاء مفتاح فريد لـ React
  * @param {Object} item - العنصر
  * @param {number} index - الفهرس
- * @returns {string} - المفتاح
+ * @returns {string}
  */
 export const getReactKey = (item, index) => {
   const id = getId(item);
-  return id ? String(id) : `item-${index}-${Date.now()}`;
-};
-
-/**
- * معالجة الأخطاء بشكل موحد
- * @param {Error} error - الخطأ
- * @param {Function} onError - دالة معالجة إضافية
- * @returns {string} - رسالة الخطأ
- */
-export const handleError = (error, onError = null) => {
-  console.error('Error:', error);
-  
-  let message = 'حدث خطأ غير متوقع';
-  
-  if (error.response) {
-    // خطأ من الخادم
-    message = error.response.data?.message || 
-              error.response.data?.error || 
-              `خطأ ${error.response.status}`;
-  } else if (error.request) {
-    // لم يتم استلام رد
-    message = 'لا يمكن الاتصال بالخادم';
-  } else if (error.message) {
-    message = error.message;
-  }
-  
-  if (onError && typeof onError === 'function') {
-    onError(message);
-  }
-  
-  return message;
-};
-
-/**
- * تأخير التنفيذ (لـ debounce)
- * @param {Function} fn - الدالة
- * @param {number} delay - التأخير بالمللي ثانية
- * @returns {Function} - الدالة مع debounce
- */
-export const debounce = (fn, delay = 500) => {
-  let timeoutId;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
+  return id ? String(id) : `item-${index}`;
 };
 
 /**
@@ -196,4 +191,39 @@ export const formatDateSafe = (date) => {
   } catch {
     return '-';
   }
+};
+
+/**
+ * معالجة الأخطاء بشكل موحد
+ * @param {Error} error - الخطأ
+ * @param {string} defaultMessage - الرسالة الافتراضية
+ * @returns {string} - رسالة الخطأ
+ */
+export const handleError = (error, defaultMessage = 'حدث خطأ غير متوقع') => {
+  console.error('Error:', error);
+  
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.data?.error) {
+    return error.response.data.error;
+  }
+  if (error.message) {
+    return error.message;
+  }
+  return defaultMessage;
+};
+
+/**
+ * تأخير التنفيذ (لـ debounce)
+ * @param {Function} fn - الدالة
+ * @param {number} delay - التأخير بالمللي ثانية
+ * @returns {Function} - الدالة مع debounce
+ */
+export const debounce = (fn, delay = 500) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
 };

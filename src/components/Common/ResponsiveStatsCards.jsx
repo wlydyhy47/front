@@ -1,7 +1,7 @@
 // src/components/Common/ResponsiveStatsCards.jsx - نسخة مصححة
 
 import { Grid, Card, CardContent, Typography, Box, useTheme, useMediaQuery } from '@mui/material';
-import { memo } from 'react'; // ✅ استيراد memo من react
+import { memo } from 'react';
 
 const ResponsiveStatsCards = memo(({ 
   cards = [], 
@@ -67,6 +67,10 @@ const ResponsiveStatsCards = memo(({
       </CardContent>
     </Card>
   );
+
+  if (cards.length === 0) {
+    return null;
+  }
 
   return (
     <Grid container spacing={isMobile ? 1.5 : spacing}>

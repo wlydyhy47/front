@@ -1,4 +1,4 @@
-// src/components/Common/ResponsiveTable.jsx - تحسين معالجة الخلايا
+// src/components/Common/ResponsiveTable.jsx - مع دعم _id
 
 import { 
   Table, 
@@ -15,6 +15,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { memo } from 'react';
+import { getId, getReactKey } from '../../utils/helpers';
 
 const ResponsiveTable = memo(({ 
   data = [], 
@@ -46,12 +47,12 @@ const ResponsiveTable = memo(({
     );
   }
 
-  // ✅ دالة مساعدة للحصول على id
+  // دالة مساعدة للحصول على id (باستخدام _id أو id)
   const getItemId = (item, index) => {
-    return item._id || item.id || `item-${index}`;
+    return getId(item) || `item-${index}`;
   };
 
-  // ✅ دالة مساعدة لعرض قيمة الخلية بشكل آمن
+  // دالة مساعدة لعرض قيمة الخلية بشكل آمن
   const renderCellValue = (column, row) => {
     // إذا كان هناك renderCell مخصص
     if (column.renderCell) {
@@ -61,7 +62,6 @@ const ResponsiveTable = memo(({
     // إذا كان هناك valueGetter
     if (column.valueGetter) {
       const value = column.valueGetter(row);
-      // التأكد من أن القيمة ليست كائن
       if (typeof value === 'object' && value !== null) {
         console.warn(`Column ${column.field} returned an object:`, value);
         return JSON.stringify(value);
@@ -72,17 +72,14 @@ const ResponsiveTable = memo(({
     // الحصول على القيمة مباشرة
     let value = row[column.field];
     
-    // التأكد من أن القيمة ليست كائن
     if (typeof value === 'object' && value !== null) {
-      console.warn(`Field ${column.field} contains an object:`, value);
-      // محاولة استخراج قيمة من الكائن
       if (value.name) return value.name;
       if (value.label) return value.label;
       if (value.id) return value.id;
+      if (value._id) return value._id;
       return JSON.stringify(value);
     }
     
-    // استخدام valueFormatter إذا وجد
     if (column.valueFormatter) {
       return column.valueFormatter(value);
     }
@@ -96,7 +93,7 @@ const ResponsiveTable = memo(({
       return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {data.map((item, index) => (
-            <div key={getItemId(item, index)}>
+            <div key={getReactKey(item, index)}>
               {renderMobileCard(item, index)}
             </div>
           ))}
@@ -109,7 +106,7 @@ const ResponsiveTable = memo(({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {data.map((item, index) => (
           <Card 
-            key={getItemId(item, index)} 
+            key={getReactKey(item, index)} 
             sx={{ 
               p: 1.5, 
               cursor: onRowClick ? 'pointer' : 'default',
@@ -168,7 +165,7 @@ const ResponsiveTable = memo(({
         <TableBody>
           {data.map((item, index) => (
             <TableRow 
-              key={getItemId(item, index)}
+              key={getReactKey(item, index)}
               hover={!!onRowClick}
               onClick={() => onRowClick && onRowClick(item)}
               sx={{ 
